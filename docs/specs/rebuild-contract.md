@@ -51,6 +51,7 @@ Evidence paths name synthetic software evidence, not hardware captures. The IV m
 | Audit B01–B10 | [Historical backend audit](../audits/backend-2026-09-28.md) and primary regression map below | Pass as a ticket assignment; every finding has one primary owner. Current acceptance still depends on each ticket's evidence. |
 | ADR 0001 | [Stable Influx point identity](../adr/0001-influx-point-identity.md) | Pass as accepted software intent. Disposable Influx round trip and replay remain unverified in M30/M32. |
 | ADR 0002 | [Independent collection and rerouting](../adr/0002-independent-collection-and-destination-rerouting.md) | Pass as accepted software intent. Destination-free collection, retained backfill, and atomic pending-only reroute remain implementation gates. |
+| ADR 0003 | [Shared operator session login](../adr/0003-shared-session-login-for-the-operator-console.md) | Pass as accepted management-access intent. M36/M37 implementation and protected-device access remain open. |
 
 This is an implementer review record, not maintainer acceptance. M17 remains unverified until a maintainer accepts the contract review.
 
@@ -80,7 +81,7 @@ The [agent execution contract](agent-execution-contract.md) fixes the software r
 
 ## Security and delivery
 
-Management topology, configuration, connection tests, Start, and Stop require a nonempty operator credential. Bind the API to loopback by default; exposing it on a protected network is an explicit deployment choice. Keep secret references out of responses and logs. Model IV's HTTP network must be restricted because the controller does not provide HTTPS. Request adapters construct paths and commands from typed allowlists only.
+Management topology, configuration, connection tests, Start, and Stop require an authenticated browser session. The browser-facing API uses the shared local `admin` account; its default password is `00000000` and may be overridden through environment secrets. No forced password change, login throttling, or account lockout is planned. This weak default is accepted only for a deployment behind a restricted network; bind the API to loopback by default and require explicit deployment evidence before exposing it on a protected network. Use same-origin session cookies and CSRF protection. Sessions expire after 8 hours idle or 24 hours total and are invalidated on server restart. External API clients and bearer-token compatibility are out of scope. Keep secret references out of responses and logs. Model IV's HTTP network must be restricted because the controller does not provide HTTPS. Request adapters construct paths and commands from typed allowlists only.
 
 MQTT, PostgreSQL, and InfluxDB must each carry every accepted record family and scan coverage before release. Configuration must reject a destination that cannot preserve a family. Collection, spool, and forwarders are separate modules with explicit contracts in one service; collection works without a configured destination. Delivery is at least once. Adding a destination assigns retained history for backfill. Changing one destination's endpoint or credentials atomically moves only that lane's pending assignments to the new endpoint; confirmed deliveries and other lanes stay untouched. Preserve record IDs and report uncertain acknowledgments as possible duplicates. Acknowledge only after remote confirmation. Gaps, partial scans, and destination faults remain queryable. [ADR 0002](../adr/0002-independent-collection-and-destination-rerouting.md) records the routing decision; the current code still follows the old identity behavior.
 
@@ -91,7 +92,7 @@ M32 must provide simulated source-to-destination and failure evidence for every 
 | Finding | Primary ticket and regression case | Related gates |
 | --- | --- | --- |
 | B01 | M22 — first disconnected II read terminates within timeout | — |
-| B02 | M21 — blank and missing management credentials deny access | M20 and M31 auth/recovery checks |
+| B02 | M36 — invalid or missing session denies management access; explicitly blank login credentials prevent startup | M20, M21, M31, and M34 auth/recovery checks |
 | B03 | M26 — protected/full spool failure remains visible and pending rows are preserved | M20 commit bounds; M27 worker-stop behavior |
 | B04 | M26 — endpoint change reroutes only that lane's pending assignments atomically | — |
 | B05 | M25 — IV ranges, sparse `data/all`, fallback, and expected-item outcomes | — |

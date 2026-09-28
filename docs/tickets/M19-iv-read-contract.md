@@ -1,6 +1,6 @@
 # M19 — Prove the Model IV safe HTTP contract with fixtures
 
-Status: ready-for-agent
+Status: needs-triage
 Completion: verified
 
 **Depends on:** None; can start now.
@@ -49,3 +49,4 @@ Site acceptance questions for M33:
 - 2026-09-28: Added `tests/fixtures/iv_responses.json` and `tests/test_iv_contract.py` for sparse `data/all`, range, null, malformed JSON, oversized export, timeout, redirect, and forbidden paths. The catalog remains manual-derived; a full endpoint-by-endpoint manual citation review and real firmware checks remain open.
 - 2026-09-28: Expanded the manifest to enumerate the 16 status paths, machine/time, 12 common paths, recipe/channel list and range paths, exports, diagnostic results, and typed-ID boundary fixtures. Added explicit printed-page citations (including forbidden screen/control/POST families), per-kind fixture responses, and named failure cases. `tests.test_iv_contract` compares the manifest path set with the generated adapter catalog and checks bounded rejection traces. Printed-page references were checked against the scanned manual and the path generator/fixture diff independently reviewed; firmware-specific response, latency, access, and field checks remain M33 work.
 - 2026-09-28: Verification: `uv run python -m unittest discover -s tests -v` — 29 tests passed; the IV contract and device suites also passed. All four ticket acceptance checks have recorded evidence. No device was connected.
+- 2026-09-28: Contract work is verified; no agent implementation step remains in M19. Maintainer triage may archive this ticket without changing its completion evidence.

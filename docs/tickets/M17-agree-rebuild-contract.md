@@ -18,7 +18,7 @@ Completion: unverified
 
 1. Use the [shared execution contract](../specs/agent-execution-contract.md) as the fixed record, scan, retention, routing, limit, and error vocabulary. Produce one row in `docs/specs/rebuild-contract.md` for each `D01`–`D09` upload and each IV family listed in `docs/reference/device-protocols.md`; columns are source, item scope, manual page, software evidence, size/deadline, and M32/M33 gate. Explicitly mark IV screen and all control requests excluded.
 2. Reconcile every B01–B10 finding against exactly one primary ticket and its named regression case. Keep provisional software limits in the existing operating-envelope table; site measurements remain M33 inputs with owner `site operator`. Use the sizing equation already in the spec and label a 24-hour claim `unverified` until measured sizes exist.
-3. Submit the changed spec plus a review matrix with rows `II manual`, `IV manual`, `retained II example`, `audit B01–B10`, `ADR 0001`, and `ADR 0002`; each row cites the checked path/page and records pass or a named unresolved fact. A maintainer's acceptance of that review is required before `Completion: verified` because this ticket's outcome is an agreed contract.
+3. Submit the changed spec plus a review matrix with rows `II manual`, `IV manual`, `retained II example`, `audit B01–B10`, `ADR 0001`, `ADR 0002`, and `ADR 0003`; each row cites the checked path/page and records pass or a named unresolved fact. A maintainer's acceptance of that review is required before `Completion: verified` because this ticket's outcome is an agreed contract.
 
 ## Scope and constraints
 
@@ -29,7 +29,7 @@ Completion: unverified
 
 ## Historical audit coverage
 
-The initial replacement map is: B01 → M22; B02 → M20, M21, M31; B03 → M20, M26, M27; B04 → M26 pending-only reroute under ADR 0002; B05 → M25; B06 → M30; B07 → M28; B08 → M27; B09 → M29; B10 → M32. Confirm this map during the contract review and preserve a regression check for each finding.
+The replacement map is: B01 → M22; B02 → M36 primary, with M20/M21/M31/M34 regression checks; B03 → M20, M26, M27; B04 → M26 pending-only reroute under ADR 0002; B05 → M25; B06 → M30; B07 → M28; B08 → M27; B09 → M29; B10 → M32. Confirm this map during the contract review and preserve a regression check for each finding.
 
 ## Acceptance checks
 

@@ -1,6 +1,6 @@
 # M18 — Prove the Model II read contract with fixtures
 
-Status: ready-for-agent
+Status: needs-triage
 Completion: verified
 
 **Depends on:** None; can start now.
@@ -43,6 +43,7 @@ Completion: verified
 - 2026-09-28: Added manual-derived `DA01`–`DA09` fixture values with page numbers in `tests/fixtures/ii_uploads.json`, strict decoding in `src/musashi_ingestion/devices/ii_decode.py`, and 2 decoder checks. The full malformed/timeout/disconnect fixture matrix and firmware questions remain open; no new hardware response was captured.
 - 2026-09-28: Synthetic timeout/disconnect checks now assert bounded abort and the UL-only trace. The site questions are in the II read contract; a retained-reader parser comparison and peer review still remain before verification.
 - 2026-09-28: Added a field-by-field comparison that executes the retained D01 parser method from the example against the same framed fixture, six named fault fixtures with exact writes, decoder/runtime checks for timeout versus OS-reported disconnect, and rejection of non-001 channel fields for machine uploads. Independent review corrected the comparison to execute the retained parser; all four acceptance checks are evidenced below. M33 hardware/site confirmation remains a separate gate.
+- 2026-09-28: Contract work is verified; no agent implementation step remains in M18. Maintainer triage may archive this ticket without changing its completion evidence.
 
 ### M18 implementation evidence (synthetic only)
 

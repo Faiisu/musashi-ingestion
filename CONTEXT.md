@@ -23,3 +23,9 @@ A configured output endpoint of one kind: MQTT, PostgreSQL, or InfluxDB. Its con
 
 **Pending delivery**:
 An observation assigned to a destination lane but not yet confirmed by that destination. Retrying it preserves the observation's record ID.
+
+**Operator account**:
+The shared local identity used to access the Musashi management console and its browser-facing API. The account is named `admin`; it does not identify an individual operator.
+
+**Operator session**:
+An authenticated period of access for the shared operator account, ending on sign-out or when its allowed lifetime expires.
