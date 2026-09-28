@@ -42,7 +42,7 @@ Completion: unverified
 - 2026-09-28: II UL-only adapter and synthetic first-read/bad-checksum checks exist in `src/musashi_ingestion/devices/ii.py` and `tests/test_devices.py`. D02–D09 field fixtures, units, and unknown-firmware list remain open. Synthetic checks do not establish hardware acceptance.
 - 2026-09-28: Added manual-derived `DA01`–`DA09` fixture values with page numbers in `tests/fixtures/ii_uploads.json`, strict decoding in `src/musashi_ingestion/devices/ii_decode.py`, and 2 decoder checks. The full malformed/timeout/disconnect fixture matrix and firmware questions remain open; no new hardware response was captured.
 - 2026-09-28: Synthetic timeout/disconnect checks now assert bounded abort and the UL-only trace. The site questions are in the II read contract; a retained-reader parser comparison and peer review still remain before verification.
-- 2026-09-28: Added a field-by-field comparison of the shared D01 values with the retained reader semantics, six named fault fixtures with exact writes, decoder/runtime checks for timeout versus OS-reported disconnect, and rejection of non-001 channel fields for machine uploads. Evidence table follows. This remains unverified pending peer review and M33 hardware/site confirmation.
+- 2026-09-28: Added a field-by-field comparison that executes the retained D01 parser method from the example against the same framed fixture, six named fault fixtures with exact writes, decoder/runtime checks for timeout versus OS-reported disconnect, and rejection of non-001 channel fields for machine uploads. Evidence table follows. This remains unverified pending peer review and M33 hardware/site confirmation.
 
 ### M18 implementation evidence (synthetic only)
 
