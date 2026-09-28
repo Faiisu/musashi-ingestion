@@ -1,6 +1,6 @@
 # M37 — Add session sign-in and sign-out to the operator console
 
-Status: ready-for-agent
+Status: ready-for-human
 Completion: unverified
 
 **Depends on:** [M36](M36-session-auth-backend.md).
@@ -32,3 +32,4 @@ Completion: unverified
 ## Comments
 
 - 2026-09-28: Implemented the session sign-in UI against M36: page load checks `/api/auth/session`, credentials post to `/api/auth/login`, sign-out posts to `/api/auth/logout`, and all state-changing API calls include the in-memory CSRF token. Removed bearer-token handling. A 401 clears protected page data, cached responses, dialogs, and password inputs before returning to sign-in. A 403 refreshes session status and reports that the action was not repeated. Added focused offline contract checks in `tests/test_web_auth_contract.py`; browser interaction, browser storage/network inspection, and deployment checks remain pending, so completion is unverified.
+- 2026-09-28: Code review added an explicit “Retry sign in” action after a network failure; the password stays only in the page input for that retry and remains cleared after invalid credentials. Review fixes passed the full 38-test suite and `node --check`. The deployed tailnet flow completed login, session restore, protected config read, and logout. Manual keyboard/narrow-viewport and browser storage/network inspection remain pending, so completion is unverified.

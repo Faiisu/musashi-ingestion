@@ -1,6 +1,6 @@
 # M36 — Replace operator bearer authentication with browser sessions
 
-Status: ready-for-agent
+Status: ready-for-human
 Completion: unverified
 
 **Depends on:** None; [ADR 0003](../adr/0003-shared-session-login-for-the-operator-console.md) is accepted.
@@ -38,3 +38,4 @@ Completion: unverified
 ## Comments
 
 - 2026-09-28: Implemented browser session authentication and exercised the local service route table in `tests/test_api.py`; `PYTHONPATH=src python3 -m unittest discover -s tests -v` passed 34 tests. Coverage includes default and overridden credentials, blank configuration, invalid login, bearer rejection, session reload/logout/restart, injected idle and absolute expiry, Origin/Host/CSRF rejection, and HTTP/trusted-proxy cookie flags. `docker compose config`, `git diff --check`, and Python compile checks passed. Completion remains unverified pending browser UI integration and deployment/network evidence; response/log leakage inspection is also not recorded as separate evidence.
+- 2026-09-28: Deployed behind the existing tailnet-only HTTPS proxy. Through that origin, verified anonymous config denial (401), login, session restore, protected config read, logout, and Secure/HttpOnly/SameSite=Strict cookie attributes. An additional response/log inspection found no password, session ID, or CSRF token in response bodies or service logs. The 34-test auth/API suite, Compose validation, compile check, and `git diff --check` passed. Browser storage inspection remains under M37, so completion remains unverified.
