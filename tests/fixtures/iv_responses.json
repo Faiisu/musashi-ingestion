@@ -1,16 +1,588 @@
 {
   "evidence": "synthetic-manual-derived; no current firmware capture",
   "manual": "examples/Instruction Manual Super ΣCMⅣ EN 1.0.pdf",
-  "communication_section_pages": "19–36",
-  "responses": {
-    "/v1/status/main": {"status": "ready", "nested": {"temperature": 24.5}},
-    "/v1/status/error": null,
-    "/v1/info/recipe/range": {"min": 0, "max": 1},
-    "/v1/info/recipe/data/all": {"recipe": [{"no": 0, "comment": "synthetic"}]},
-    "/v1/info/recipe/data/2": {"recipe": [{"no": 1, "comment": "synthetic fallback"}]},
-    "/v1/info/channel/range": {"min": 0, "max": 1},
-    "/v1/info/channel/data/all": {"ch": [{"no": 0, "disPress": 35.5}]},
-    "/v1/info/channel/data/2": {"ch": [{"no": 1, "disPress": 40.0}]}
+  "communication_section_printed_pages": "19–36",
+  "catalog": {
+    "status_paths": [
+      "/v1/status/main",
+      "/v1/status/channel",
+      "/v1/status/recipe",
+      "/v1/status/error",
+      "/v1/status/alarm",
+      "/v1/status/totalCounter",
+      "/v1/status/userCounter",
+      "/v1/status/supply",
+      "/v1/status/autoInc",
+      "/v1/status/interval",
+      "/v1/status/stopWatch",
+      "/v1/status/tempUnit",
+      "/v1/status/sigma",
+      "/v1/status/remain",
+      "/v1/status/dsubio/in",
+      "/v1/status/dsubio/out"
+    ],
+    "machine_time_paths": [
+      "/v1/info/machine/data",
+      "/v1/time"
+    ],
+    "common_paths": [
+      "/v1/info/common/interval/data",
+      "/v1/info/common/interval/range",
+      "/v1/info/common/correction/data",
+      "/v1/info/common/correction/range",
+      "/v1/info/common/rs232c/data",
+      "/v1/info/common/rs232c/range",
+      "/v1/info/common/ethernet/data",
+      "/v1/info/common/ethernet/range",
+      "/v1/info/common/dsubio/data",
+      "/v1/info/common/dsubio/range",
+      "/v1/info/common/configure/data",
+      "/v1/info/common/configure/range"
+    ],
+    "inventory_paths": [
+      "/v1/info/recipe/data/all",
+      "/v1/info/recipe/range",
+      "/v1/info/channel/data/all",
+      "/v1/info/channel/range"
+    ],
+    "export_paths": [
+      "/v1/export/data",
+      "/v1/export/log"
+    ],
+    "diagnosis_result_paths": [
+      "/v1/diagnosis/dispense/result",
+      "/v1/diagnosis/vacuum/result",
+      "/v1/diagnosis/valve/result"
+    ],
+    "typed_id_templates": {
+      "recipe": {
+        "template": "/v1/info/recipe/data/{id}",
+        "range": "1–100",
+        "fixtures": [
+          "/v1/info/recipe/data/1",
+          "/v1/info/recipe/data/2",
+          "/v1/info/recipe/data/100"
+        ]
+      },
+      "channel": {
+        "template": "/v1/info/channel/data/{id}",
+        "range": "1–400",
+        "fixtures": [
+          "/v1/info/channel/data/1",
+          "/v1/info/channel/data/2",
+          "/v1/info/channel/data/400"
+        ]
+      }
+    },
+    "forbidden_families": {
+      "screen": {
+        "path": "/v1/screen",
+        "printed_page": 25,
+        "evidence": "manual-documented; excluded by scope"
+      },
+      "control_get": {
+        "paths": [
+          "/v1/current/*",
+          "/v1/clear/*",
+          "/v1/calibrate/*",
+          "/v1/diagnosis/{type}/{onoff}",
+          "/v1/logout"
+        ],
+        "printed_page": 20,
+        "evidence": "manual-documented state-changing GET; excluded by scope"
+      },
+      "post": {
+        "paths": [
+          "POST /v1/login",
+          "POST /v1/import",
+          "POST /v1/time"
+        ],
+        "printed_pages": [
+          20,
+          22
+        ],
+        "evidence": "manual-documented mutation/registration; excluded by scope"
+      },
+      "user_path": "arbitrary caller-supplied path or URL; no manual allowlist entry; rejected by API shape"
+    }
   },
-  "fault_cases": ["redirect", "oversized-export", "timeout", "malformed-json", "missing-id"]
+  "response_contracts": {
+    "status": "JSON object or explicit null where field permits (manual-derived; variants unverified)",
+    "machine_time_common_recipe_channel_range_diagnosis": "JSON object/array per documented API; firmware shape variants unknown",
+    "export_data": "JSON export object (bounded)",
+    "export_log": "UTF-8 TSV text (bounded)",
+    "recipe_channel_item": "JSON object/array with URL id 1-based and payload no 0-based"
+  },
+  "limits": {
+    "ports": [
+      1024,
+      1025,
+      1026
+    ],
+    "transport": "HTTP only; HTTPS unavailable per manual",
+    "max_clients": 3,
+    "deadline_seconds": 2,
+    "max_response_bytes": 1048576,
+    "evidence": "manual ports/transport/client limit; software timeout/size defaults"
+  },
+  "responses": {
+    "/v1/status/main": {
+      "kind": "json",
+      "body": {
+        "status": "Ready",
+        "error": 0,
+        "alarm": 0
+      }
+    },
+    "/v1/status/channel": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/recipe": {
+      "kind": "json",
+      "body": {
+        "value": null
+      }
+    },
+    "/v1/status/error": {
+      "kind": "json",
+      "body": null
+    },
+    "/v1/status/alarm": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/totalCounter": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/userCounter": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/supply": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/autoInc": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/interval": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/stopWatch": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/tempUnit": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/sigma": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/remain": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/dsubio/in": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/status/dsubio/out": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/info/machine/data": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/time": {
+      "kind": "json",
+      "body": {
+        "time": "synthetic"
+      }
+    },
+    "/v1/info/recipe/data/all": {
+      "kind": "json",
+      "body": {
+        "recipe": [
+          {
+            "no": 0,
+            "comment": "synthetic"
+          }
+        ]
+      }
+    },
+    "/v1/info/recipe/range": {
+      "kind": "json",
+      "body": {
+        "min": 0,
+        "max": 1
+      }
+    },
+    "/v1/info/channel/data/all": {
+      "kind": "json",
+      "body": {
+        "ch": [
+          {
+            "no": 0,
+            "disPress": 35.5
+          }
+        ]
+      }
+    },
+    "/v1/info/channel/range": {
+      "kind": "json",
+      "body": {
+        "min": 0,
+        "max": 1
+      }
+    },
+    "/v1/info/common/interval/data": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/info/common/interval/range": {
+      "kind": "json",
+      "body": {
+        "min": 0,
+        "max": 1
+      }
+    },
+    "/v1/info/common/correction/data": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/info/common/correction/range": {
+      "kind": "json",
+      "body": {
+        "min": 0,
+        "max": 1
+      }
+    },
+    "/v1/info/common/rs232c/data": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/info/common/rs232c/range": {
+      "kind": "json",
+      "body": {
+        "min": 0,
+        "max": 1
+      }
+    },
+    "/v1/info/common/ethernet/data": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/info/common/ethernet/range": {
+      "kind": "json",
+      "body": {
+        "min": 0,
+        "max": 1
+      }
+    },
+    "/v1/info/common/dsubio/data": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/info/common/dsubio/range": {
+      "kind": "json",
+      "body": {
+        "min": 0,
+        "max": 1
+      }
+    },
+    "/v1/info/common/configure/data": {
+      "kind": "json",
+      "body": {
+        "value": 0
+      }
+    },
+    "/v1/info/common/configure/range": {
+      "kind": "json",
+      "body": {
+        "min": 0,
+        "max": 1
+      }
+    },
+    "/v1/diagnosis/dispense/result": {
+      "kind": "json",
+      "body": {
+        "value": 1
+      }
+    },
+    "/v1/diagnosis/vacuum/result": {
+      "kind": "json",
+      "body": {
+        "value": 1
+      }
+    },
+    "/v1/diagnosis/valve/result": {
+      "kind": "json",
+      "body": {
+        "value": 1
+      }
+    },
+    "/v1/export/data": {
+      "kind": "json",
+      "body": {
+        "data": []
+      }
+    },
+    "/v1/export/log": {
+      "kind": "tsv",
+      "body": "timestamp\tmessage\nsynthetic\tfixture\n"
+    },
+    "/v1/info/recipe/data/1": {
+      "kind": "json",
+      "body": {
+        "recipe": [
+          {
+            "no": 0,
+            "synthetic": true
+          }
+        ]
+      }
+    },
+    "/v1/info/recipe/data/100": {
+      "kind": "json",
+      "body": {
+        "recipe": [
+          {
+            "no": 99,
+            "synthetic": true
+          }
+        ]
+      }
+    },
+    "/v1/info/channel/data/1": {
+      "kind": "json",
+      "body": {
+        "ch": [
+          {
+            "no": 0,
+            "synthetic": true
+          }
+        ]
+      }
+    },
+    "/v1/info/channel/data/400": {
+      "kind": "json",
+      "body": {
+        "ch": [
+          {
+            "no": 399,
+            "synthetic": true
+          }
+        ]
+      }
+    },
+    "/v1/info/recipe/data/2": {
+      "kind": "json",
+      "body": {
+        "recipe": [
+          {
+            "no": 1,
+            "comment": "synthetic fallback"
+          }
+        ]
+      }
+    },
+    "/v1/info/channel/data/2": {
+      "kind": "json",
+      "body": {
+        "ch": [
+          {
+            "no": 1,
+            "disPress": 40.0
+          }
+        ]
+      }
+    }
+  },
+  "fault_cases": {
+    "partial-data-all": {
+      "request": [
+        "channel_all",
+        null,
+        null
+      ],
+      "response": {
+        "ch": [
+          {
+            "no": 0,
+            "disPress": 35.5
+          }
+        ]
+      },
+      "expected": "accepted partial inventory; absent IDs remain unavailable"
+    },
+    "missing-id": {
+      "family": "channel",
+      "response": {
+        "ch": [
+          {
+            "disPress": 35.5
+          }
+        ]
+      },
+      "expected_error": "invalid channel item shape",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    },
+    "malformed-range": {
+      "family": "recipe",
+      "response": {
+        "min": 0,
+        "max": 99
+      },
+      "expected_error": "recipe range conflicts with configured count",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    },
+    "oversized-json": {
+      "request": [
+        "export_data",
+        null,
+        null
+      ],
+      "body_bytes": 1048577,
+      "expected_error": "response exceeds byte limit",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    },
+    "oversized-tsv": {
+      "request": [
+        "export_log",
+        null,
+        null
+      ],
+      "body_bytes": 1048577,
+      "expected_error": "response exceeds byte limit",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    },
+    "timeout": {
+      "request": [
+        "status",
+        null,
+        "alarm"
+      ],
+      "expected_error": "transport failed",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    },
+    "redirect": {
+      "request": [
+        "time",
+        null,
+        null
+      ],
+      "status": 302,
+      "expected_error": "HTTP 302",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    },
+    "malformed-json": {
+      "request": [
+        "status",
+        null,
+        "main"
+      ],
+      "body": "{not-json",
+      "expected_error": "invalid JSON response",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    },
+    "forbidden-control-get": {
+      "request": [
+        "current/dispense",
+        null,
+        null
+      ],
+      "expected_error": "unsupported IV read request",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    },
+    "screen": {
+      "request": [
+        "screen",
+        null,
+        null
+      ],
+      "expected_error": "unsupported IV read request",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    },
+    "post": {
+      "method": "POST",
+      "path": "/v1/time",
+      "expected_error": "unsupported IV read request",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    },
+    "out-of-range-id": {
+      "request": [
+        "channel_item",
+        401,
+        null
+      ],
+      "expected_error": "unsupported IV read request",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    },
+    "user-supplied-path": {
+      "request": [
+        "/v1/status/main",
+        null,
+        null
+      ],
+      "expected_error": "unsupported IV read request",
+      "followup_requests": 0,
+      "forbidden_path_bytes": []
+    }
+  }
 }

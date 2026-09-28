@@ -40,6 +40,26 @@ The [IV manual](../../examples/Instruction%20Manual%20Super%20%CE%A3CM%E2%85%A3%
 | Full export and log | `/v1/export/data`, `/v1/export/log` | JSON export and TSV log |
 | Diagnostic results | `/v1/diagnosis/{type}/result`; `type` is `dispense`, `vacuum`, or `valve` | JSON result only; never start a test |
 
+Endpoint citations below use the manual's printed “Communication Ethernet” page numbers. They are manual-derived evidence, not firmware verification.
+
+| Exact read family | Manual citation and documented response | Current evidence |
+| --- | --- | --- |
+| Status `/v1/status/{main,channel,recipe,error,alarm,totalCounter,userCounter,supply,autoInc,interval,stopWatch,tempUnit,sigma,remain,dsubio/in,dsubio/out}` | Pages 26–31; JSON fields, values, arrays, and nullable recipe value are shown in endpoint examples | Manual-derived; sparse/null fixtures synthetic; firmware variants unknown |
+| Machine `/v1/info/machine/data` | Page 33; JSON data format reference | Manual-derived; synthetic fixture |
+| Clock `GET /v1/time` | Pages 20 and 22–23; GET acquires time; POST sets it | Manual-derived; synthetic fixture |
+| Common `/v1/info/common/{option}/{data,range}` for six options | Pages 20 and 33–34; JSON data and range | Manual-derived; synthetic fixtures |
+| Recipe all/range and `/data/{id}` | Pages 20 and 34; JSON; URL ID is 1–100 | Manual-derived; synthetic partial-list/range/item fixtures |
+| Channel all/range and `/data/{id}` | Pages 20 and 35; JSON; URL ID is 1–400 | Manual-derived; synthetic partial-list/range/item fixtures |
+| `/v1/export/data` and `/v1/export/log` | Page 22; JSON export and TSV text respectively | Manual-derived; synthetic fixtures; response sizes unverified |
+| `/v1/diagnosis/{dispense,vacuum,valve}/result` | Pages 20 and 33; JSON `value` result | Manual-derived; synthetic fixture; result availability/shape variants unknown |
+| Screen `/v1/screen` | Page 25; image acquisition | Manual-documented and excluded by scope |
+| Control GET `/v1/current/*`, `/v1/clear/*`, `/v1/calibrate/*`, `/v1/diagnosis/{type}/{onoff}`, `/v1/logout` | Page 20; execution/update/registration operations, including diagnosis start/abort on page 33 | Manual-documented state-changing and excluded; synthetic allowlist rejection |
+| POST `/v1/login`, `/v1/import`, `/v1/time` | Page 20; registration/import/set-time operations | Manual-documented and excluded; synthetic allowlist rejection |
+
+The machine-information, common, recipe, and channel paths use the manual's JSON-format reference (pages 36–45). Exact firmware response variants remain unknown until M33. The manual lists HTTP ports 1024–1026, up to three simultaneous clients, and no HTTPS support (printed pages 7–8). Software bounds are a 2-second timeout and 1 MiB response limit; these are adapter limits, not controller guarantees. The adapter constructs requests from fixed kinds/options and typed IDs, so a caller-supplied path is rejected before any HTTP request.
+
+`tests/fixtures/iv_responses.json` is the endpoint manifest: it records the expanded allowlist, representative typed-ID boundary fixtures, response kinds, evidence label, and named fault cases. Its fixtures are synthetic, never device captures. A partial `data/all` array intentionally represents missing IDs as unavailable; payload `no` is zero-based even though URL IDs are one-based.
+
 In the live-status row, each abbreviated suffix after `/v1/status/main` has the same `/v1/status` prefix. In the common-settings row, `/range` means `/v1/info/common/{option}/range`. The adapter must expand these to exact paths before adding them to its allowlist.
 
 The channel payload includes `disTime` (seconds), `disPress` (kPa), `disVacuum` (−kPa as printed in the manual), `shotMode`, `chName`, and `no`. URL `id` is 1–400, while payload `no` is 0–399. Keep those numbering schemes separate. The `data/all` endpoints cover the same items as the individual endpoints. The current implementation conservatively requests each configured ID as well; reducing those requests requires a verified reconciliation rule.

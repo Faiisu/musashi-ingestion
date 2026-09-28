@@ -28,10 +28,18 @@ Completion: unverified
 
 ## Acceptance checks
 
-- [ ] Each allowed and forbidden family has a manual citation and explicit evidence level.
-- [ ] Synthetic fixtures include partial `data/all`, missing IDs, range responses, oversized export/log, timeout, redirect, and malformed content.
-- [ ] The allowlist rejects control paths, screen images, out-of-range IDs, and user-supplied paths.
-- [ ] Questions requiring real IV firmware are listed for site acceptance.
+- [x] Each allowed and forbidden family has a manual citation and explicit evidence level in `docs/reference/device-protocols.md` and the fixture manifest.
+- [x] Synthetic fixtures include partial `data/all`, missing IDs, range responses, oversized JSON/TSV, timeout, redirect, and malformed JSON.
+- [x] The allowlist rejects control paths, screen images, out-of-range IDs, and user-supplied paths before making an HTTP request.
+- [x] Questions requiring real IV firmware are listed below for site acceptance.
+
+Site acceptance questions for M33:
+
+- Which status, machine, common, recipe, channel, export, and diagnostic responses can be `null`, sparse, or unavailable on each supported firmware/model?
+- Do URL IDs 1–100 / 1–400 consistently correspond to payload `no` 0–99 / 0–399, including partial `data/all` responses?
+- What are the largest export/log bodies and normal/worst-case response latencies on the configured port?
+- Are all allowlisted reads available at the configured operator access level, and do any firmware revisions behave differently?
+- What exact units and field variants are returned for channel values and diagnostic results?
 
 **Verification:** Compare the catalog and fixture manifest with the manual's Ethernet API section; inspect the entire allowed request set for machine-state changes.
 
@@ -39,3 +47,4 @@ Completion: unverified
 
 - 2026-09-28: IV exact-path adapter and synthetic redirect/forbidden-path checks exist in `src/musashi_ingestion/devices/iv.py` and `tests/test_devices.py`. Full response/fault fixture manifest and firmware questions remain open. Synthetic checks do not establish hardware acceptance.
 - 2026-09-28: Added `tests/fixtures/iv_responses.json` and `tests/test_iv_contract.py` for sparse `data/all`, range, null, malformed JSON, oversized export, timeout, redirect, and forbidden paths. The catalog remains manual-derived; a full endpoint-by-endpoint manual citation review and real firmware checks remain open.
+- 2026-09-28: Expanded the manifest to enumerate the 16 status paths, machine/time, 12 common paths, recipe/channel list and range paths, exports, diagnostic results, and typed-ID boundary fixtures. Added explicit printed-page citations (including forbidden screen/control/POST families), per-kind fixture responses, and named failure cases. `tests.test_iv_contract` now compares the manifest path set with the generated adapter catalog and checks bounded rejection traces. The printed-page map was checked against the scanned manual during implementation; independent peer review and all firmware-specific response, latency, access, and field checks remain outstanding, so completion stays unverified.
