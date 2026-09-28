@@ -2,7 +2,7 @@
 
 This page is navigation for the rebuild. A partial backend implementation is runnable with a simulated read; full ticket acceptance, destination integration, and hardware validation remain open. Each [ticket](agents/issue-tracker.md) owns its `Status:` and `Completion:` fields; this page does not duplicate them. Use the [source-of-truth map](ssot.md) for evidence levels and authority.
 
-The previous M01–M16 ticket files were removed. The historical backend findings remain in the [audit report](audits/backend-2026-09-28.md); the backend ticket set is M17–M33. [M34](tickets/M34-frontend-api-contract.md) and [M35](tickets/M35-operator-frontend.md) now plan a protected operator UI after its API dependencies are complete.
+The previous M01–M16 ticket files were removed. The historical backend findings remain in the [audit report](audits/backend-2026-09-28.md); the backend ticket set is M17–M33. [M34](tickets/M34-frontend-api-contract.md) and [M35](tickets/M35-operator-frontend.md) track the protected operator UI. An initial console is implemented and deployed; connection tests and full backend status fields remain open.
 
 The [agent execution contract](specs/agent-execution-contract.md) fixes shared shapes, limits, retention, and evidence format. Each ticket now has a fixed work order and named result cases. Ticket dependencies and external site inputs still govern when its work can start; `Status:` and `Completion:` remain in the ticket itself.
 

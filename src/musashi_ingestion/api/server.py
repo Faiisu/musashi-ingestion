@@ -4,8 +4,11 @@ from __future__ import annotations
 
 import hmac
 import json
+import mimetypes
 import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
+from urllib.parse import urlsplit
 
 from musashi_ingestion.config.store import ConfigError, RevisionConflict
 from musashi_ingestion.pipeline.spool import SpoolError, make_record
@@ -15,6 +18,7 @@ def serve(bind, port, token, config_store, spool, supervisor):
     if not token:
         raise ValueError("OPERATOR_TOKEN must be nonempty")
     operation_lock = threading.RLock()
+    web_root = Path(__file__).resolve().parent.parent / "web"
 
     class Handler(BaseHTTPRequestHandler):
         server_version = "MusashiManagement/1"
@@ -33,8 +37,38 @@ def serve(bind, port, token, config_store, spool, supervisor):
             self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
             self.end_headers()
             self.wfile.write(data)
+
+        def _static(self):
+            route = urlsplit(self.path).path
+            relative = "index.html" if route == "/" else route.removeprefix("/ui/")
+            if route != "/" and not route.startswith("/ui/"):
+                return False
+            candidate = (web_root / relative).resolve()
+            if web_root not in candidate.parents and candidate != web_root:
+                self.send_error(404)
+                return True
+            if not candidate.is_file():
+                self.send_error(404)
+                return True
+            data = candidate.read_bytes()
+            content_type = mimetypes.guess_type(candidate.name)[0] or "application/octet-stream"
+            self.send_response(200)
+            self.send_header("Content-Type", content_type + ("; charset=utf-8" if content_type.startswith("text/") or content_type in ("application/javascript", "application/json") else ""))
+            self.send_header("Content-Length", str(len(data)))
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+            self.end_headers()
+            self.wfile.write(data)
+            return True
 
         def _authorized(self):
             supplied = self.headers.get("Authorization", "")
@@ -53,6 +87,9 @@ def serve(bind, port, token, config_store, spool, supervisor):
             return value
 
         def do_GET(self):
+            if self.path == "/" or self.path.startswith("/ui/"):
+                self._static()
+                return
             if self.path == "/health":
                 self._send(200, {"process": "ok", "acquisition": supervisor.status()["running"],
                                  "fault": bool(supervisor.status()["acquisition_fault"])})

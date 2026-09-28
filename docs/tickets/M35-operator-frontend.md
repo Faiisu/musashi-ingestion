@@ -1,7 +1,7 @@
 # M35 — Build the operator frontend
 
 Status: needs-triage
-Completion: not-started
+Completion: unverified
 
 **Depends on:** [M34](M34-frontend-api-contract.md).
 
@@ -42,4 +42,4 @@ Completion: not-started
 
 ## Comments
 
-- 2026-09-28: The screen set and workflow are proposed. The repository has no browser UI yet, and M34's full API contract is not implemented.
+- 2026-09-28: Initial responsive four-view console is served by `src/musashi_ingestion/api/server.py` and deployed at the private Tailscale endpoint. It covers current routes and secure in-memory token entry. M34's connection-test route and complete status contract are still open; operator-device, keyboard, narrow-viewport, and full workflow review remain unverified.

@@ -32,6 +32,7 @@ class Supervisor:
         self._threads = {}
         self._states = {}
         self._target_ids = ()
+        self._destination_status_ids = {}
         self._delivery_threads = {}
         self._delivery_states = {}
 
@@ -52,6 +53,8 @@ class Supervisor:
                 target_pairs.append((self.spool.register_target(destination["kind"], identity),
                                      destination, identity.get("secret_digest")))
             self._target_ids = tuple(target_id for target_id, _, _ in target_pairs)
+            self._destination_status_ids = {target_id: destination["id"]
+                                            for target_id, destination, _ in target_pairs}
             self._stop = threading.Event()
             self._threads = {}
             self._states = {}
@@ -87,8 +90,9 @@ class Supervisor:
         with self._lock:
             machines = {ident: dict(state) | {"worker_alive": self._threads[ident].is_alive()}
                         for ident, state in self._states.items()}
-            destinations = {ident: dict(state) | {"worker_alive": self._delivery_threads[ident].is_alive()}
-                            for ident, state in self._delivery_states.items()}
+            destinations = {self._destination_status_ids.get(target_id, target_id):
+                            dict(state) | {"worker_alive": self._delivery_threads[target_id].is_alive()}
+                            for target_id, state in self._delivery_states.items()}
         spool = self.spool.stats()
         return {"running": any(item["worker_alive"] for item in machines.values()) and not self._stop.is_set(),
                 "machines": machines, "destinations": destinations, "spool": spool,

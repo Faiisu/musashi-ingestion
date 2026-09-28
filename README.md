@@ -1,6 +1,6 @@
-# Musashi ingestion backend
+# Musashi ingestion service and operator console
 
-This repository is rebuilding a read-only ingestion service for Musashi Super ΣCM II and IV dispensers. It has an authenticated management API, a SQLite record spool, safe request adapters, independent machine workers, and MQTT/PostgreSQL/InfluxDB delivery adapters. There is no frontend. Device reads have only been exercised with synthetic responses; limited MQTT and PostgreSQL service checks passed, while hardware compatibility and a full three-destination round trip remain open ticket gates.
+This repository is rebuilding a read-only ingestion service for Musashi Super ΣCM II and IV dispensers. It has an authenticated management API, a responsive operator console, a SQLite record spool, safe request adapters, independent machine workers, and MQTT/PostgreSQL/InfluxDB delivery adapters. Device reads have only been exercised with synthetic responses; limited MQTT and PostgreSQL service checks passed, while hardware compatibility and a full three-destination round trip remain open ticket gates.
 
 ## Prerequisites
 
@@ -34,9 +34,15 @@ The mock request returns a `record_id`; the authenticated records response conta
 
 The API is bound to `127.0.0.1:8080` by default. `MUSASHI_BIND`, `MUSASHI_PORT`, and `MUSASHI_DATA_DIR` override those values. `OPERATOR_TOKEN` must be nonempty or startup fails. Configuration updates use `PUT /api/config` with the current `revision`, `version: 1`, `machines`, and `destinations`; Start and Stop are `POST /api/control/start` and `/api/control/stop`. `GET /api/scans` shows recent inventory item coverage. Passwords and tokens belong in permission-restricted files referenced by `secret_ref`; the API redacts those references on read. Do not treat the retained `config/config.json` as a compatible configuration file.
 
+## Operator console and network access
+
+Open `http://127.0.0.1:8080/` on the host, or use the service's HTTPS Tailscale Serve address from a device connected to the same tailnet. Enter `OPERATOR_TOKEN` at the sign-in prompt. The browser holds it in memory for the current page only; reloading asks for it again. The console reads status and recent data, edits versioned configuration while workers are stopped, and starts or stops acquisition. Connection-test actions are not available until M21's route is implemented.
+
+For Compose, host port publishing stays on loopback by default. `MUSASHI_WEB_BIND` selects a specific host interface for LAN access; the checked-in `.env.example` keeps loopback as its default. Prefer Tailscale Serve for remote devices because it provides HTTPS and keeps the service private to the tailnet. If using direct LAN HTTP, restrict the host interface and network to trusted devices; bearer authentication does not encrypt HTTP traffic.
+
 ## Container build
 
-With a token in the shell, `docker compose build ingestion` builds the backend image. `docker compose up -d` starts it on host loopback port 8080 with a named persistent volume and a non-root container user. Compose does not map a serial device by default; add only the selected `/dev/serial/by-id/...` device for a site deployment. The IV controller speaks HTTP only, so restrict its network route. A successful image build is not evidence of host serial access or destination delivery.
+With a token in `.env`, `docker compose build ingestion` builds the image. `docker compose up -d` starts the API and console on the selected host interface with a named persistent volume and a non-root container user. Compose does not map a serial device by default; add only the selected `/dev/serial/by-id/...` device for a site deployment. The IV controller speaks HTTP only, so restrict its network route. A successful image build is not evidence of host serial access or destination delivery.
 
 ## Current limits and evidence
 

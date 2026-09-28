@@ -19,3 +19,6 @@ musashi-ingestion = "musashi_ingestion.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
+
+[tool.setuptools.package-data]
+musashi_ingestion = ["web/*"]

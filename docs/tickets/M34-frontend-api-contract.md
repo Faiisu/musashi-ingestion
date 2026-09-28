@@ -1,7 +1,7 @@
 # M34 — Expose the operator UI API contract
 
 Status: needs-triage
-Completion: not-started
+Completion: unverified
 
 **Depends on:** [M21](M21-secure-configuration.md), [M26](M26-spool-recovery-and-identity.md), [M27](M27-multi-machine-scheduling.md).
 
@@ -56,4 +56,4 @@ The target `GET /api/status` body retains the existing top-level keys and adds t
 
 ## Comments
 
-- 2026-09-28: Proposed UI contract based on current `src/musashi_ingestion/api/server.py`. `POST /api/connection-test` and several M26/M27 status fields are still absent. No frontend API acceptance evidence exists yet.
+- 2026-09-28: Initial console uses the current config/status/records/scans/control routes on one origin. Authenticated smoke checks returned 200 for config/status/records/scans and anonymous status returned 401 over the deployed HTTPS proxy. `POST /api/connection-test` and several M26/M27 status fields are still absent; full contract acceptance remains open.

@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="theme-color" content="#f3f5f2">
+    <title>Musashi Console</title>
+    <link rel="stylesheet" href="/ui/styles.css">
+    <script src="/ui/app.js" defer></script>
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar" aria-label="เมนูหลัก">
+        <a class="brand" href="#overview" aria-label="Musashi Console หน้าภาพรวม">
+          <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span><strong>musashi</strong><small>INGESTION CONSOLE</small></span>
+        </a>
+        <div class="nav-label">WORKSPACE</div>
+        <nav class="primary-nav">
+          <a href="#overview" data-page="overview" class="nav-link active"><span class="nav-icon icon-grid" aria-hidden="true"></span><span>ภาพรวม</span></a>
+          <a href="#machines" data-page="machines" class="nav-link"><span class="nav-icon icon-machine" aria-hidden="true"></span><span>เครื่องจักร</span><span class="nav-count" id="machine-count">0</span></a>
+          <a href="#destinations" data-page="destinations" class="nav-link"><span class="nav-icon icon-destination" aria-hidden="true"></span><span>ปลายทาง</span><span class="nav-count" id="destination-count">0</span></a>
+          <a href="#records" data-page="records" class="nav-link"><span class="nav-icon icon-records" aria-hidden="true"></span><span>ข้อมูลล่าสุด</span></a>
+        </nav>
+        <div class="sidebar-spacer"></div>
+        <section class="connection-card">
+          <span class="eyebrow">LOCAL SERVICE</span>
+          <div class="connection-line"><span class="live-dot" id="connection-dot"></span><strong id="connection-label">กำลังตรวจสอบ</strong></div>
+          <span class="connection-address" id="connection-address">API · same origin</span>
+        </section>
+        <div class="sidebar-foot"><span class="foot-mark">M</span><span>Read-only machine access<br><small>Operator controls stay protected</small></span></div>
+      </aside>
+
+      <main class="main-area">
+        <header class="topbar">
+          <div class="breadcrumb"><span>CONSOLE</span><span class="slash">/</span><strong id="crumb-page">ภาพรวม</strong></div>
+          <div class="topbar-actions">
+            <div class="refresh-state"><span class="refresh-dot" id="refresh-dot"></span><span id="last-updated">รอเชื่อมต่อ</span></div>
+            <button class="icon-button" id="refresh-button" type="button" aria-label="รีเฟรชข้อมูล" title="รีเฟรชข้อมูล"><span class="refresh-icon" aria-hidden="true">↻</span></button>
+            <button class="operator-button" id="operator-button" type="button"><span class="operator-avatar">OP</span><span>Operator</span><span class="chevron">⌄</span></button>
+          </div>
+        </header>
+
+        <div class="page-wrap">
+          <div id="notice" class="notice" role="status" aria-live="polite" hidden></div>
+          <section id="page-content" aria-live="polite"></section>
+          <footer class="page-footer"><span>Musashi ingestion service</span><span>ข้อมูลจากระบบนี้อาจเป็น simulated จนกว่าจะยืนยันกับอุปกรณ์จริง</span></footer>
+        </div>
+      </main>
+    </div>
+
+    <dialog id="token-dialog" class="dialog token-dialog" aria-labelledby="token-title">
+      <form id="token-form" method="dialog">
+        <div class="dialog-kicker">SECURE SESSION</div>
+        <h2 id="token-title">เชื่อมต่อ operator console</h2>
+        <p>ใส่ operator token เพื่ออ่านสถานะและใช้งานระบบ Token จะอยู่ในหน่วยความจำของหน้านี้และหายเมื่อปิดหรือโหลดใหม่</p>
+        <label for="token-input">Operator token</label>
+        <div class="token-input-wrap"><input id="token-input" type="password" autocomplete="off" spellcheck="false" required><button id="token-visibility" type="button" class="text-button">แสดง</button></div>
+        <div id="token-error" class="field-error" role="alert"></div>
+        <button class="button button-primary dialog-submit" type="submit">เชื่อมต่อ <span aria-hidden="true">→</span></button>
+      </form>
+    </dialog>
+
+    <dialog id="edit-dialog" class="dialog edit-dialog" aria-labelledby="edit-title">
+      <form id="edit-form" method="dialog">
+        <div class="dialog-top"><div><div class="dialog-kicker" id="edit-kicker">CONFIGURATION</div><h2 id="edit-title">เพิ่มรายการ</h2></div><button class="icon-button close-dialog" type="button" aria-label="ปิด">×</button></div>
+        <div id="edit-fields" class="form-grid"></div>
+        <div id="edit-error" class="field-error" role="alert"></div>
+        <div class="dialog-actions"><button type="button" class="button button-quiet close-dialog">ยกเลิก</button><button type="submit" class="button button-primary">บันทึกการแก้ไข <span aria-hidden="true">→</span></button></div>
+      </form>
+    </dialog>
+    <dialog id="confirm-dialog" class="dialog confirm-dialog" aria-labelledby="confirm-title">
+      <form id="confirm-form" method="dialog"><div class="dialog-kicker">CONFIRM ACTION</div><h2 id="confirm-title">ยืนยันการทำงาน</h2><p id="confirm-copy"></p><div class="dialog-actions"><button class="button button-quiet" value="cancel">ยกเลิก</button><button class="button button-danger" value="confirm">ยืนยัน</button></div></form>
+    </dialog>
+  </body>
+</html>
