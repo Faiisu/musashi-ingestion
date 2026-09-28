@@ -313,6 +313,53 @@ class ApiTests(unittest.TestCase):
                 process.terminate()
                 process.wait(timeout=5)
 
+    def test_wildcard_origins_allow_any_matching_host_and_keep_https_cookie_secure(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with socket.socket() as sock:
+                sock.bind(("127.0.0.1", 0))
+                port = sock.getsockname()[1]
+            env = os.environ.copy()
+            env.update(OPERATOR_USERNAME="admin", OPERATOR_PASSWORD="secret",
+                       MUSASHI_ALLOWED_ORIGINS="*", MUSASHI_PORT=str(port), MUSASHI_DATA_DIR=directory)
+            process = subprocess.Popen([sys.executable, "-m", "musashi_ingestion"], env=env,
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            base = f"http://127.0.0.1:{port}"
+            try:
+                for _ in range(50):
+                    try:
+                        with urlopen(base + "/health", timeout=2):
+                            break
+                    except (URLError, OSError):
+                        time.sleep(0.05)
+                host = f"console.anywhere.example:{port}"
+                origin = f"http://{host}"
+                login_request = Request(base + "/api/auth/login", data=json.dumps(
+                    {"username": "admin", "password": "secret"}).encode(),
+                    headers={"Host": host, "Origin": origin, "Content-Type": "application/json"}, method="POST")
+                with urlopen(login_request, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+                    self.assertNotIn("Secure", response.headers["Set-Cookie"])
+
+                secure_host = "console.anywhere.example"
+                secure_request = Request(base + "/api/auth/login", data=json.dumps(
+                    {"username": "admin", "password": "secret"}).encode(),
+                    headers={"Host": secure_host, "Origin": f"https://{secure_host}",
+                             "Content-Type": "application/json"}, method="POST")
+                with urlopen(secure_request, timeout=2) as response:
+                    self.assertIn("Secure", response.headers["Set-Cookie"])
+
+                mismatch = Request(base + "/api/auth/login", data=json.dumps(
+                    {"username": "admin", "password": "secret"}).encode(),
+                    headers={"Host": host, "Origin": "http://other.example", "Content-Type": "application/json"},
+                    method="POST")
+                with self.assertRaises(HTTPError) as denied:
+                    urlopen(mismatch, timeout=2)
+                self.assertEqual(denied.exception.code, 403)
+                denied.exception.close()
+            finally:
+                process.terminate()
+                process.wait(timeout=5)
+
     def test_expiry_uses_idle_and_absolute_limits(self):
         now = [1000.0]
         store = SessionStore("admin", "password", clock=lambda: now[0])
@@ -340,9 +387,11 @@ class ApiTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 validate_public_origin(invalid)
 
-    def test_allowed_origin_validation_requires_exact_origin_and_private_http(self):
+    def test_allowed_origin_validation_requires_exact_origin_and_restricted_http_host(self):
+        self.assertEqual(validate_allowed_origin("*"), "*")
         self.assertEqual(validate_allowed_origin("http://127.0.0.1:8080"), "http://127.0.0.1:8080")
         self.assertEqual(validate_allowed_origin("http://192.168.50.10:8080"), "http://192.168.50.10:8080")
+        self.assertEqual(validate_allowed_origin("http://100.85.124.109:8080"), "http://100.85.124.109:8080")
         self.assertEqual(validate_allowed_origin("https://console.example"), "https://console.example")
         for invalid in ("https://console.example/path", "http://console.example", "http://8.8.8.8:8080",
                         "https://user@console.example", "https://console.example/"):

@@ -15,6 +15,8 @@ from musashi_ingestion.api.auth import COOKIE_NAME, SessionStore
 from musashi_ingestion.config.store import ConfigError, RevisionConflict
 from musashi_ingestion.pipeline.spool import SpoolError, make_record
 
+TAILSCALE_IPV4 = ipaddress.ip_network("100.64.0.0/10")
+
 
 def validate_public_origin(value):
     """Validate the exact trusted browser origin used behind a TLS proxy."""
@@ -35,7 +37,9 @@ def validate_public_origin(value):
 
 
 def validate_allowed_origin(value):
-    """Validate an exact browser origin; plain HTTP is limited to private hosts."""
+    """Validate an exact origin entry or the explicitly configured wildcard."""
+    if value == "*":
+        return value
     try:
         parsed = urlsplit(value)
         port = parsed.port
@@ -53,8 +57,8 @@ def validate_allowed_origin(value):
             address = ipaddress.ip_address(parsed.hostname)
         except ValueError:
             raise ValueError("HTTP origins must use localhost or a private IP address") from None
-        if not (address.is_private or address.is_loopback):
-            raise ValueError("HTTP origins must use localhost or a private IP address")
+        if not (address.is_private or address.is_loopback or address in TAILSCALE_IPV4):
+            raise ValueError("HTTP origins must use localhost, a private IP, or a shared-network IP address")
     return value
 
 
@@ -64,6 +68,9 @@ def serve(bind, port, username, password, config_store, spool, supervisor, publi
     public_origin = validate_public_origin(public_origin)
     expected_origin = public_origin or f"http://127.0.0.1:{port}"
     origins = {validate_allowed_origin(origin) for origin in allowed_origins if origin}
+    allow_any_origin = "*" in origins
+    if allow_any_origin and len(origins) != 1:
+        raise ValueError("MUSASHI_ALLOWED_ORIGINS cannot combine * with specific origins")
     origins.add(validate_allowed_origin(expected_origin))
     origin_authorities = {origin: urlsplit(origin).netloc for origin in origins}
     allowed_authorities = set(origin_authorities.values())
@@ -134,7 +141,21 @@ def serve(bind, port, username, password, config_store, spool, supervisor, publi
 
         def _host_is_valid(self):
             hosts = self.headers.get_all("Host", [])
-            return len(hosts) == 1 and hosts[0] in allowed_authorities
+            if len(hosts) != 1:
+                return False
+            if hosts[0] in allowed_authorities:
+                return True
+            if not allow_any_origin:
+                return False
+            try:
+                parsed = urlsplit(f"//{hosts[0]}")
+                port = parsed.port
+            except ValueError:
+                return False
+            return (parsed.hostname is not None and parsed.username is None and parsed.password is None
+                    and not parsed.path and not parsed.query and not parsed.fragment
+                    and not hosts[0].endswith(":") and not any(char.isspace() for char in hosts[0])
+                    and (port is None or 1 <= port <= 65535))
 
         def _origin_is_valid(self):
             origins = self.headers.get_all("Origin", [])
@@ -145,13 +166,14 @@ def serve(bind, port, username, password, config_store, spool, supervisor, publi
                 parsed = urlsplit(origin)
             except ValueError:
                 return False
-            return (origin in origins and parsed.scheme in ("http", "https")
-                    and parsed.netloc == origin_authorities[origin] and self.headers.get("Host") == parsed.netloc and not parsed.path
+            allowed = origin in origins or allow_any_origin
+            return (allowed and parsed.scheme in ("http", "https")
+                    and parsed.netloc == self.headers.get("Host") and not parsed.path
                     and not parsed.query and not parsed.fragment and parsed.username is None)
 
         def _cookie_is_secure(self):
             origin = self.headers.get("Origin", "")
-            return origin in origins and urlsplit(origin).scheme == "https"
+            return (origin in origins or allow_any_origin) and origin.startswith("https://")
 
         def _csrf_is_valid(self, session):
             return sessions.csrf_valid(session, self.headers.get("X-CSRF-Token"))
