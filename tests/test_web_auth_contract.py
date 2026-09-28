@@ -32,6 +32,14 @@ class WebAuthContractTests(unittest.TestCase):
         self.assertNotIn("localStorage", self.app)
         self.assertNotIn("sessionStorage", self.app)
 
+    def test_login_network_failure_offers_retry_without_persisting_password(self):
+        self.assertIn('error.retryableLoginFailure = path === "/api/auth/login"', self.app)
+        self.assertIn('const retryable=failure.retryableLoginFailure===true', self.app)
+        self.assertIn('if (retryable) $("#password-input").value=password', self.app)
+        self.assertIn('submit.childNodes[0].textContent=retryable?"Retry sign in ":"Sign in "', self.app)
+        self.assertIn('$(retryable?"#password-input":"#username-input").focus()', self.app)
+        self.assertIn('if (path === "/api/auth/login") throw new Error("Invalid username or password.")', self.app)
+
     def test_login_form_is_labeled_and_uses_password_manager_autofill(self):
         self.assertIn('for="username-input">Username</label>', self.html)
         self.assertIn('autocomplete="username"', self.html)

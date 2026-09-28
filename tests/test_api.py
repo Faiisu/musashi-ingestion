@@ -63,10 +63,23 @@ class ApiTests(unittest.TestCase):
 
             process = start()
             try:
+                security_headers = {
+                    "Cache-Control": "no-store",
+                    "X-Content-Type-Options": "nosniff",
+                    "X-Frame-Options": "DENY",
+                    "Referrer-Policy": "no-referrer",
+                    "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'",
+                }
                 with request("/health") as response:
+                    for name, value in security_headers.items():
+                        self.assertEqual(response.headers[name], value)
                     health = json.load(response)
                 self.assertFalse(health["acquisition"])
                 self.assertFalse(health["fault"])
+
+                with request("/") as response:
+                    for name, value in security_headers.items():
+                        self.assertEqual(response.headers[name], value)
 
                 with request("/api/auth/session") as response:
                     self.assertEqual(json.load(response), {"authenticated": False})
