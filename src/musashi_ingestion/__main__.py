@@ -21,9 +21,10 @@ def main():
     supervisor = Supervisor(config, spool)
     bind = os.environ.get("MUSASHI_BIND", "127.0.0.1")
     port = int(os.environ.get("MUSASHI_PORT", "8080"))
+    allowed_origins = tuple(origin.strip() for origin in os.environ.get("MUSASHI_ALLOWED_ORIGINS", "").split(",") if origin.strip())
     try:
         serve(bind, port, username, password, config, spool, supervisor,
-              os.environ.get("MUSASHI_PUBLIC_ORIGIN") or None)
+              os.environ.get("MUSASHI_PUBLIC_ORIGIN") or None, allowed_origins)
     finally:
         spool.close()
 

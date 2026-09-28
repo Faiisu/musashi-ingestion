@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ipaddress
 import json
 import mimetypes
 import threading
@@ -33,11 +34,39 @@ def validate_public_origin(value):
     return value
 
 
-def serve(bind, port, username, password, config_store, spool, supervisor, public_origin=None):
+def validate_allowed_origin(value):
+    """Validate an exact browser origin; plain HTTP is limited to private hosts."""
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except (TypeError, ValueError):
+        raise ValueError("MUSASHI_ALLOWED_ORIGINS entries must be exact origins") from None
+    if (parsed.scheme not in ("http", "https") or not parsed.netloc
+            or parsed.username is not None or parsed.password is not None
+            or parsed.path or parsed.query or parsed.fragment
+            or "@" in parsed.netloc or any(char.isspace() for char in value)
+            or parsed.hostname is None or parsed.netloc.endswith(":")
+            or (port is not None and not 1 <= port <= 65535)):
+        raise ValueError("MUSASHI_ALLOWED_ORIGINS entries must be exact origins")
+    if parsed.scheme == "http" and parsed.hostname != "localhost":
+        try:
+            address = ipaddress.ip_address(parsed.hostname)
+        except ValueError:
+            raise ValueError("HTTP origins must use localhost or a private IP address") from None
+        if not (address.is_private or address.is_loopback):
+            raise ValueError("HTTP origins must use localhost or a private IP address")
+    return value
+
+
+def serve(bind, port, username, password, config_store, spool, supervisor, public_origin=None,
+          allowed_origins=()):
     sessions = SessionStore(username, password)
     public_origin = validate_public_origin(public_origin)
     expected_origin = public_origin or f"http://127.0.0.1:{port}"
-    expected_authority = urlsplit(expected_origin).netloc
+    origins = {validate_allowed_origin(origin) for origin in allowed_origins if origin}
+    origins.add(validate_allowed_origin(expected_origin))
+    origin_authorities = {origin: urlsplit(origin).netloc for origin in origins}
+    allowed_authorities = set(origin_authorities.values())
     operation_lock = threading.RLock()
     web_root = Path(__file__).resolve().parent.parent / "web"
 
@@ -105,7 +134,7 @@ def serve(bind, port, username, password, config_store, spool, supervisor, publi
 
         def _host_is_valid(self):
             hosts = self.headers.get_all("Host", [])
-            return len(hosts) == 1 and hosts[0] == expected_authority
+            return len(hosts) == 1 and hosts[0] in allowed_authorities
 
         def _origin_is_valid(self):
             origins = self.headers.get_all("Origin", [])
@@ -116,20 +145,24 @@ def serve(bind, port, username, password, config_store, spool, supervisor, publi
                 parsed = urlsplit(origin)
             except ValueError:
                 return False
-            return (origin == expected_origin and parsed.scheme in ("http", "https")
-                    and parsed.netloc == expected_authority and not parsed.path
+            return (origin in origins and parsed.scheme in ("http", "https")
+                    and parsed.netloc == origin_authorities[origin] and self.headers.get("Host") == parsed.netloc and not parsed.path
                     and not parsed.query and not parsed.fragment and parsed.username is None)
+
+        def _cookie_is_secure(self):
+            origin = self.headers.get("Origin", "")
+            return origin in origins and urlsplit(origin).scheme == "https"
 
         def _csrf_is_valid(self, session):
             return sessions.csrf_valid(session, self.headers.get("X-CSRF-Token"))
 
         def _session_cookie(self, session):
-            secure = "; Secure" if public_origin else ""
+            secure = "; Secure" if self._cookie_is_secure() else ""
             return (f"{COOKIE_NAME}={session.session_id}; Path=/; HttpOnly; SameSite=Strict; "
                     f"Max-Age=86400{secure}")
 
         def _clear_session_cookie(self):
-            secure = "; Secure" if public_origin else ""
+            secure = "; Secure" if self._cookie_is_secure() else ""
             return f"{COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0{secure}"
 
         def _body(self):

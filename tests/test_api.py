@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 from musashi_ingestion.api.auth import ABSOLUTE_SECONDS, IDLE_SECONDS, SessionStore
-from musashi_ingestion.api.server import validate_public_origin
+from musashi_ingestion.api.server import validate_allowed_origin, validate_public_origin
 
 
 class ApiTests(unittest.TestCase):
@@ -259,6 +259,60 @@ class ApiTests(unittest.TestCase):
                 process.terminate()
                 process.wait(timeout=5)
 
+    def test_explicit_private_lan_origin_and_https_origin_can_both_login(self):
+        with tempfile.TemporaryDirectory() as directory:
+            with socket.socket() as sock:
+                sock.bind(("127.0.0.1", 0))
+                port = sock.getsockname()[1]
+            env = os.environ.copy()
+            lan_origin = f"http://192.168.50.10:{port}"
+            env.update(OPERATOR_USERNAME="admin", OPERATOR_PASSWORD="secret",
+                       MUSASHI_ALLOWED_ORIGINS=f"{lan_origin},https://console.example",
+                       MUSASHI_PORT=str(port), MUSASHI_DATA_DIR=directory)
+            process = subprocess.Popen([sys.executable, "-m", "musashi_ingestion"], env=env,
+                                       stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            base = f"http://127.0.0.1:{port}"
+            try:
+                for _ in range(50):
+                    try:
+                        with urlopen(base + "/health", timeout=2):
+                            break
+                    except (URLError, OSError):
+                        time.sleep(0.05)
+                lan_request = Request(base + "/api/auth/login", data=json.dumps(
+                    {"username": "admin", "password": "secret"}).encode(),
+                    headers={"Host": f"192.168.50.10:{port}", "Origin": lan_origin,
+                             "Content-Type": "application/json"}, method="POST")
+                with urlopen(lan_request, timeout=2) as response:
+                    self.assertNotIn("Secure", response.headers["Set-Cookie"])
+                    cookie = SimpleCookie()
+                    cookie.load(response.headers["Set-Cookie"])
+                    session_id = cookie["musashi_session"].value
+                    self.assertTrue(json.load(response)["authenticated"])
+                read = Request(base + "/api/config", headers={
+                    "Host": f"192.168.50.10:{port}", "Cookie": f"musashi_session={session_id}"})
+                with urlopen(read, timeout=2) as response:
+                    self.assertEqual(response.status, 200)
+
+                https_request = Request(base + "/api/auth/login", data=json.dumps(
+                    {"username": "admin", "password": "secret"}).encode(),
+                    headers={"Host": "console.example", "Origin": "https://console.example",
+                             "Content-Type": "application/json"}, method="POST")
+                with urlopen(https_request, timeout=2) as response:
+                    self.assertIn("Secure", response.headers["Set-Cookie"])
+
+                denied = Request(base + "/api/auth/login", data=json.dumps(
+                    {"username": "admin", "password": "secret"}).encode(),
+                    headers={"Host": f"192.168.50.10:{port}", "Origin": f"http://192.168.50.11:{port}",
+                             "Content-Type": "application/json"}, method="POST")
+                with self.assertRaises(HTTPError) as mismatch:
+                    urlopen(denied, timeout=2)
+                self.assertEqual(mismatch.exception.code, 403)
+                mismatch.exception.close()
+            finally:
+                process.terminate()
+                process.wait(timeout=5)
+
     def test_expiry_uses_idle_and_absolute_limits(self):
         now = [1000.0]
         store = SessionStore("admin", "password", clock=lambda: now[0])
@@ -285,6 +339,15 @@ class ApiTests(unittest.TestCase):
                         "https://console.example/path", "https://console.example?x=1", "https://console.example#x"):
             with self.subTest(invalid=invalid), self.assertRaises(ValueError):
                 validate_public_origin(invalid)
+
+    def test_allowed_origin_validation_requires_exact_origin_and_private_http(self):
+        self.assertEqual(validate_allowed_origin("http://127.0.0.1:8080"), "http://127.0.0.1:8080")
+        self.assertEqual(validate_allowed_origin("http://192.168.50.10:8080"), "http://192.168.50.10:8080")
+        self.assertEqual(validate_allowed_origin("https://console.example"), "https://console.example")
+        for invalid in ("https://console.example/path", "http://console.example", "http://8.8.8.8:8080",
+                        "https://user@console.example", "https://console.example/"):
+            with self.subTest(invalid=invalid), self.assertRaises(ValueError):
+                validate_allowed_origin(invalid)
 
 
 if __name__ == "__main__":

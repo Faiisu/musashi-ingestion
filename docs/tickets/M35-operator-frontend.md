@@ -37,7 +37,7 @@ Completion: unverified
 - [ ] Recent records and scans show evidence type, observation age, and complete/partial/missing coverage accurately; the UI does not imply more than ten entries are available.
 - [ ] Keyboard and narrow-screen review covers every form, control, status message, and error path; text remains usable without color cues and all UI text is English.
 - [ ] Sign-in, sign-out, page reload with a valid session, 401 recovery, and CSRF 403 handling work; browser inspection finds no password, session ID, or CSRF token in persistent storage, URL, static assets, or screenshots.
-- [ ] A separate operator device on the approved network reaches the protected HTTPS address and completes sign-in, status read, reload, and sign-out; cookie flags and network restrictions match M36/M31. Evidence names the device/browser and date without exposing credentials.
+- [ ] A separate operator device on the approved network reaches the protected management origin and completes sign-in, status read, reload, and sign-out; cookie flags and network restrictions match M36/M31. If direct HTTP is used, it is limited to an exact private-LAN origin; the HTTPS proxy origin remains available. Evidence names the device/browser and date without exposing credentials.
 
 **Verification:** Review the interface on the same-origin local service with fake II/IV and destination responses, then repeat the named access flow from a separate operator network device. Record captures and behavior notes against each acceptance check here. Device compatibility remains M33 evidence.
 
@@ -45,3 +45,4 @@ Completion: unverified
 
 - 2026-09-28: Initial responsive four-view console is served by `src/musashi_ingestion/api/server.py` and deployed at the private Tailscale endpoint. It covers current routes and secure in-memory token entry. M34's connection-test route and complete status contract are still open; operator-device, keyboard, narrow-viewport, and full workflow review remain unverified.
 - 2026-09-28: M37 now owns the shared session sign-in UI; M35 verifies its integration with all four operational pages and access from a separate network device. Current token-entry UI remains implemented behavior until M37 is completed; the accepted login defaults are weak and must not be exposed beyond a restricted network.
+- 2026-09-28: Network-access request adds an exact private-LAN HTTP origin alongside the tailnet HTTPS origin. Separate-device sign-in remains unverified.
