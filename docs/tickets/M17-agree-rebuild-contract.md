@@ -1,6 +1,6 @@
 # M17 — Agree the rebuild contract and release gates
 
-Status: ready-for-agent
+Status: ready-for-human
 Completion: unverified
 
 **Depends on:** None; can start now.

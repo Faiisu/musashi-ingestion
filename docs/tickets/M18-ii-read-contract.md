@@ -1,7 +1,7 @@
 # M18 — Prove the Model II read contract with fixtures
 
 Status: ready-for-agent
-Completion: unverified
+Completion: verified
 
 **Depends on:** None; can start now.
 
@@ -30,10 +30,10 @@ Completion: unverified
 
 ## Acceptance checks
 
-- [ ] Each upload has a source page, expected request/response shape, field/units table, scope, and evidence label.
-- [ ] `D01` fixture checks reproduce the retained reader's observed parsing; the other fixtures are visibly manual-derived.
-- [ ] A machine-state-changing command cannot appear in the planned request set.
-- [ ] Unknown firmware behavior and unavailable fields are listed for the site gate.
+- [x] Each upload has a source page, expected request/response shape, field/units table, scope, and evidence label.
+- [x] `D01` fixture checks reproduce the retained reader's observed parsing; the other fixtures are visibly manual-derived.
+- [x] A machine-state-changing command cannot appear in the planned request set.
+- [x] Unknown firmware behavior and unavailable fields are listed for the site gate.
 
 **Verification:** Record a field-by-field fixture and command comparison against the cited manual pages and retained example. Do not connect or operate a machine in this ticket.
 
@@ -42,7 +42,7 @@ Completion: unverified
 - 2026-09-28: II UL-only adapter and synthetic first-read/bad-checksum checks exist in `src/musashi_ingestion/devices/ii.py` and `tests/test_devices.py`. D02–D09 field fixtures, units, and unknown-firmware list remain open. Synthetic checks do not establish hardware acceptance.
 - 2026-09-28: Added manual-derived `DA01`–`DA09` fixture values with page numbers in `tests/fixtures/ii_uploads.json`, strict decoding in `src/musashi_ingestion/devices/ii_decode.py`, and 2 decoder checks. The full malformed/timeout/disconnect fixture matrix and firmware questions remain open; no new hardware response was captured.
 - 2026-09-28: Synthetic timeout/disconnect checks now assert bounded abort and the UL-only trace. The site questions are in the II read contract; a retained-reader parser comparison and peer review still remain before verification.
-- 2026-09-28: Added a field-by-field comparison that executes the retained D01 parser method from the example against the same framed fixture, six named fault fixtures with exact writes, decoder/runtime checks for timeout versus OS-reported disconnect, and rejection of non-001 channel fields for machine uploads. Evidence table follows. This remains unverified pending peer review and M33 hardware/site confirmation.
+- 2026-09-28: Added a field-by-field comparison that executes the retained D01 parser method from the example against the same framed fixture, six named fault fixtures with exact writes, decoder/runtime checks for timeout versus OS-reported disconnect, and rejection of non-001 channel fields for machine uploads. Independent review corrected the comparison to execute the retained parser; all four acceptance checks are evidenced below. M33 hardware/site confirmation remains a separate gate.
 
 ### M18 implementation evidence (synthetic only)
 
@@ -72,3 +72,5 @@ The six fault fixture keys are executed by `test_ii_fault_fixture_matrix_and_saf
 | `faults[5]` / `blank_numeric` | Pressure `null`; other D01 values unchanged | Exact expected object |
 
 The accepted write vocabulary is `ENQ`, `ACK`, `EOT`, `CAN`, and a framed `UL001D01`; no other application command is emitted. These are fake-serial and synthetic-payload results, not hardware observations.
+
+Verification: `uv run python -m unittest discover -s tests -v` — 29 tests passed; focused II decoder and device suites also passed. No hardware was connected.
