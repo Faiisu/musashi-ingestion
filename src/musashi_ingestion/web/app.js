@@ -2,7 +2,7 @@
   "use strict";
 
   const pageNames = {overview: "Overview", machines: "Machines", destinations: "Destinations", records: "Recent data"};
-  const state = {csrfToken: "", authenticated: false, page: "overview", health: null, config: null, status: null, records: [], scans: [], busy: false, edit: null, refreshTimer: null, machineFilter: "all", machineQuery: ""};
+  const state = {csrfToken: "", authenticated: false, page: "overview", health: null, config: null, status: null, records: [], scans: [], busy: false, edit: null, refreshTimer: null, machineFilter: "all", machineQuery: "", destinationFilter: "all", destinationQuery: ""};
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
@@ -132,6 +132,12 @@
     return live.state || (live.worker_alive ? "running" : "stopped");
   }
 
+  function destinationState(destination) {
+    const live = destinationStatus(destination);
+    if (live.error) return "fault";
+    return live.state || (live.worker_alive ? "running" : "stopped");
+  }
+
   function machineRow(machine) {
     const live = machineStatus(machine);
     const endpoint = machine.model === "IV" ? `${machine.host}:${machine.port || 1024}` : machine.port;
@@ -155,8 +161,25 @@
 
   function destinationCard(destination) {
     const live = destinationStatus(destination);
-    const target = destination.kind === "mqtt" ? `${destination.host || "Broker"} · ${destination.topic || "—"}` : destination.kind === "influxdb" ? `${destination.org || "Org"} / ${destination.bucket || "Bucket"}` : "PostgreSQL service";
-    return `<article class="entity-card"><div class="entity-head"><div class="entity-identity"><span class="device-avatar">${esc(destination.kind.slice(0,2).toUpperCase())}</span><div><h3>${esc(destination.id)}</h3><p>${esc(destination.kind.toUpperCase())}</p></div></div><div class="entity-actions"><button class="small-button" data-action="edit-destination" data-id="${esc(destination.id)}">Edit</button><button class="small-button danger" data-action="remove-destination" data-id="${esc(destination.id)}">Remove</button></div></div><div class="entity-detail-grid"><div class="full"><div class="detail-label">TARGET</div><div class="detail-value">${esc(target)}</div></div><div><div class="detail-label">PENDING</div><div class="detail-value">${number(live.pending_count || 0)} records</div></div><div><div class="detail-label">OLDEST PENDING</div><div class="detail-value">${esc(ago(live.oldest_pending_at))}</div></div></div><div class="entity-foot"><span>${live.error ? `<span class="quality error">${esc(live.error)}</span>` : `Last delivery · ${esc(ago(live.last_success))}`}</span>${statusBadge(live)}</div></article>`;
+    const kind = destination.kind || "unknown";
+    const kindName = {mqtt:"MQTT broker", postgres:"PostgreSQL", influxdb:"InfluxDB"}[kind] || kind;
+    const target = kind === "mqtt"
+      ? `${destination.host || "Broker host"}:${destination.port || (destination.tls ? 8883 : 1883)}`
+      : kind === "influxdb" ? destination.url || "InfluxDB URL not configured" : "Connection details stored in a protected secret file";
+    const pending = Number(live.pending_count || 0);
+    const targetMeta = kind === "mqtt" ? `Topic · ${destination.topic || "Not configured"}`
+      : kind === "influxdb" ? `${destination.org || "Organization not configured"} · ${destination.bucket || "Bucket not configured"}`
+      : "Credentials are kept outside the configuration response";
+    const deliveryMessage = live.error ? "Delivery needs attention" : pending ? `Oldest queued · ${ago(live.oldest_pending_at)}`
+      : live.last_success ? `Last delivered · ${ago(live.last_success)}` : "No successful delivery recorded";
+    const locked = Boolean(state.status?.running);
+    return `<article class="destination-card" data-destination-state="${esc(destinationState(destination))}">
+      <div class="destination-card-head"><div class="destination-kind-mark" aria-hidden="true">${esc(kind === "influxdb" ? "IF" : kind === "postgres" ? "PG" : "MQ")}</div><div class="destination-identity"><p>${esc(kindName)}</p><h2>${esc(destination.id)}</h2></div><div class="destination-actions"><button class="small-button" data-action="edit-destination" data-id="${esc(destination.id)}" ${locked ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Edit</button><button class="small-button danger" data-action="remove-destination" data-id="${esc(destination.id)}" ${locked ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Remove</button></div></div>
+      <div class="destination-target"><span class="detail-label">DELIVERY TARGET</span><strong class="mono">${esc(target)}</strong><span>${esc(targetMeta)}</span></div>
+      <div class="destination-health ${live.error ? "has-error" : ""}">${statusBadge({...live,state:destinationState(destination)})}<span>${esc(deliveryMessage)}</span></div>
+      ${live.error ? `<div class="destination-error" role="status">${esc(live.error)}</div>` : ""}
+      <div class="destination-stats"><div><span>Pending records</span><strong>${number(pending)}</strong></div><div><span>Oldest pending</span><strong>${pending ? esc(ago(live.oldest_pending_at)) : "Queue clear"}</strong></div></div>
+    </article>`;
   }
 
   function emptyPanel(title, detail, action = "") {
@@ -208,8 +231,39 @@
 
   function renderDestinations() {
     const destinations = state.config?.destinations || [], running = Boolean(state.status?.running), spool = state.status?.spool || {};
-    const action = `<button class="button button-primary" data-action="add-destination" ${running ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>＋ Add destination</button>`;
-    return `${pageHeading("DELIVERY TARGETS", "Destinations", "Track delivery status for MQTT, PostgreSQL, and InfluxDB.", action)}${running?`<div class="notice warning" style="position:static;transform:none;max-width:none;margin-bottom:14px">Stop acquisition before adding, editing, or removing configuration.</div>`:""}<section class="status-strip"><div class="status-copy"><span class="status-icon">↗</span><div><div class="status-title">Retained spool history</div><div class="status-subtitle">A new destination can backfill only records still retained in the spool.</div></div></div><div class="status-right"><span class="badge">Oldest retained · ${esc(date(spool.oldest_retained_at))}</span><span class="badge">Pruned · ${number(spool.pruned_record_count || 0)}</span></div></section><div class="toolbar"><span class="toolbar-note">${number(destinations.length)} destinations · Each delivery lane is independent</span></div><div class="destination-cards">${destinations.length?destinations.map(destinationCard).join(""):emptyPanel("No destinations configured", "The service can collect records without a destination. Add one when ready.", `<button class="button button-primary" data-action="add-destination">Add destination</button>`)}</div>`;
+    const active = destinations.filter(destination => ["running", "starting"].includes(destinationState(destination))).length;
+    const faults = destinations.filter(destination => destinationState(destination) === "fault").length;
+    const pendingLanes = destinations.filter(destination => Number(destinationStatus(destination).pending_count || 0) > 0).length;
+    const stopped = destinations.length - active - faults;
+    const pendingRecords = Number(spool.pending || 0);
+    const action = `<button class="button button-primary" data-action="add-destination" ${running ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Add destination <span aria-hidden="true">＋</span></button>`;
+    const filterButton = (key, label, count) => `<button type="button" class="destination-filter ${state.destinationFilter === key ? "active" : ""}" data-destination-filter="${key}" aria-pressed="${state.destinationFilter === key}">${label}<span>${number(count)}</span></button>`;
+    const results = destinations.length ? `<div id="destination-results" class="destination-cards">${renderDestinationResults(destinations)}</div>` : `<div class="destination-empty"><span class="destination-empty-mark" aria-hidden="true">↗</span><h2>No delivery targets yet</h2><p>Collected records stay in the local spool until a destination is configured.</p><button class="button button-primary" data-action="add-destination" ${running ? "disabled" : ""}>Add your first destination</button></div>`;
+    return `${pageHeading("DELIVERY TARGETS", "Destinations", "Monitor delivery lanes, queued records, and endpoint health.", action)}
+      ${running ? `<div class="machine-lock-notice"><span aria-hidden="true">i</span><span>Acquisition is running. Stop it before changing destination configuration.</span></div>` : ""}
+      <section class="destination-summary" aria-label="Destination delivery summary"><div><span class="machine-summary-label">Configured</span><strong>${number(destinations.length)}</strong></div><div><span class="machine-summary-label">Active workers</span><strong class="summary-good">${number(active)}</strong></div><div><span class="machine-summary-label">Pending records</span><strong>${number(pendingRecords)}</strong></div><div><span class="machine-summary-label">Needs attention</span><strong class="summary-danger">${number(faults)}</strong></div></section>
+      <section class="destination-retention"><div class="retention-mark" aria-hidden="true">↗</div><div class="retention-copy"><strong>Retained spool history</strong><span>New destinations can backfill only records still in the spool.</span></div><div class="retention-values"><div><span>Oldest retained</span><strong>${esc(date(spool.oldest_retained_at))}</strong></div><div><span>Pruned records</span><strong>${number(spool.pruned_record_count || 0)}</strong></div></div></section>
+      <section class="destination-browser" aria-label="Destination list"><div class="destination-browser-head"><div><h2>Delivery lanes</h2><p>${number(pendingLanes)} ${pendingLanes === 1 ? "lane has" : "lanes have"} queued records</p></div><label class="destination-search"><span aria-hidden="true">⌕</span><input id="destination-search" type="search" value="${esc(state.destinationQuery)}" placeholder="Search destinations" aria-label="Search destinations"></label></div><div class="destination-filter-row" role="group" aria-label="Filter destinations">${filterButton("all", "All", destinations.length)}${filterButton("running", "Active", active)}${filterButton("fault", "Needs attention", faults)}${filterButton("pending", "With pending", pendingLanes)}${filterButton("stopped", "Stopped", stopped)}</div></section>
+      ${results}`;
+  }
+
+  function renderDestinationResults(destinations) {
+    const query = state.destinationQuery.trim().toLocaleLowerCase();
+    const filtered = destinations.filter(destination => {
+      const live = destinationStatus(destination);
+      const currentState = destinationState(destination);
+      const pending = Number(live.pending_count || 0) > 0;
+      const matchesFilter = state.destinationFilter === "all"
+        || (state.destinationFilter === "running" && ["running", "starting"].includes(currentState))
+        || (state.destinationFilter === "fault" && currentState === "fault")
+        || (state.destinationFilter === "pending" && pending)
+        || (state.destinationFilter === "stopped" && currentState === "stopped");
+      const searchable = [destination.id, destination.kind, destination.host, destination.port, destination.topic,
+        destination.url, destination.org, destination.bucket].filter(Boolean).join(" ").toLocaleLowerCase();
+      return matchesFilter && searchable.includes(query);
+    });
+    if (!filtered.length) return `<div class="destination-no-results"><strong>No matching destinations</strong><span>Try another search or delivery filter.</span></div>`;
+    return filtered.map(destinationCard).join("");
   }
 
   function renderRecords() {
@@ -333,6 +387,8 @@
   }
 
   document.addEventListener("click", event => {
+    const destinationFilter = event.target.closest("[data-destination-filter]");
+    if (destinationFilter) { state.destinationFilter = destinationFilter.dataset.destinationFilter; render(); return; }
     const filter = event.target.closest("[data-machine-filter]");
     if (filter) { state.machineFilter = filter.dataset.machineFilter; render(); return; }
     const target = event.target.closest("[data-action], [data-nav]");
@@ -350,11 +406,15 @@
   });
 
   document.addEventListener("input", event => {
-    if (event.target.id !== "machine-search") return;
-    state.machineQuery = event.target.value;
-    const machines = state.config?.machines || [];
-    const results = $("#machine-results");
-    if (results) results.innerHTML = renderMachineResults(machines);
+    if (event.target.id === "machine-search") {
+      state.machineQuery = event.target.value;
+      const results = $("#machine-results");
+      if (results) results.innerHTML = renderMachineResults(state.config?.machines || []);
+    } else if (event.target.id === "destination-search") {
+      state.destinationQuery = event.target.value;
+      const results = $("#destination-results");
+      if (results) results.innerHTML = renderDestinationResults(state.config?.destinations || []);
+    }
   });
 
   $("#refresh-button").addEventListener("click",()=>refresh());
