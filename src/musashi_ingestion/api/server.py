@@ -44,6 +44,13 @@ def serve(bind, port, username, password, config_store, spool, supervisor, publi
     class Handler(BaseHTTPRequestHandler):
         server_version = "MusashiManagement/1"
 
+        def _send_security_headers(self):
+            self.send_header("Cache-Control", "no-store")
+            self.send_header("X-Content-Type-Options", "nosniff")
+            self.send_header("X-Frame-Options", "DENY")
+            self.send_header("Referrer-Policy", "no-referrer")
+            self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+
         def setup(self):
             super().setup()
             self.connection.settimeout(5)
@@ -58,11 +65,7 @@ def serve(bind, port, username, password, config_store, spool, supervisor, publi
             if body is not None:
                 self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("X-Frame-Options", "DENY")
-            self.send_header("Referrer-Policy", "no-referrer")
-            self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+            self._send_security_headers()
             for name, value in headers:
                 self.send_header(name, value)
             self.end_headers()
@@ -86,11 +89,7 @@ def serve(bind, port, username, password, config_store, spool, supervisor, publi
             self.send_response(200)
             self.send_header("Content-Type", content_type + ("; charset=utf-8" if content_type.startswith("text/") or content_type in ("application/javascript", "application/json") else ""))
             self.send_header("Content-Length", str(len(data)))
-            self.send_header("Cache-Control", "no-store")
-            self.send_header("X-Content-Type-Options", "nosniff")
-            self.send_header("X-Frame-Options", "DENY")
-            self.send_header("Referrer-Policy", "no-referrer")
-            self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+            self._send_security_headers()
             self.end_headers()
             self.wfile.write(data)
             return True

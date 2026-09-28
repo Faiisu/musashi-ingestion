@@ -35,7 +35,7 @@
     if (options.body !== undefined) headers.set("Content-Type", "application/json");
     let response;
     try { response = await fetch(path, {...options, method, headers, credentials:"same-origin", body: options.body === undefined ? undefined : JSON.stringify(options.body), cache:"no-store"}); }
-    catch { throw new Error("Could not reach the service. Check your network and try again."); }
+    catch { const error = new Error("Could not reach the service. Check your network and try again."); error.retryableLoginFailure = path === "/api/auth/login"; throw error; }
     const type = response.headers.get("content-type") || "";
     const body = type.includes("application/json") ? await response.json().catch(() => ({})) : {};
     if (response.status === 401) {
@@ -320,6 +320,7 @@
     const username=$("#username-input").value.trim(), password=$("#password-input").value;
     const error=$("#login-error"), submit=$("#login-submit");
     $("#password-input").value=""; error.textContent=""; submit.disabled=true;
+    submit.childNodes[0].textContent="Signing in ";
     try {
       const result=await api("/api/auth/login",{method:"POST",body:{username,password}});
       state.authenticated=result.authenticated===true;
@@ -328,9 +329,12 @@
       await refresh({quiet:true});
       if (state.authenticated && state.config && !state.refreshTimer) state.refreshTimer=window.setInterval(()=>refresh({quiet:true}),8000);
     } catch (failure) {
+      const retryable=failure.retryableLoginFailure===true;
+      if (retryable) $("#password-input").value=password;
+      submit.childNodes[0].textContent=retryable?"Retry sign in ":"Sign in ";
       error.textContent=failure.message || "Sign-in failed. Check your connection and try again.";
       if (!$("#login-dialog").open) $("#login-dialog").showModal();
-      $("#username-input").focus();
+      $(retryable?"#password-input":"#username-input").focus();
     } finally { submit.disabled=false; }
   });
   $("#password-visibility").addEventListener("click",event=>{const input=$("#password-input");input.type=input.type==="password"?"text":"password";event.currentTarget.textContent=input.type==="password"?"Show":"Hide";});
