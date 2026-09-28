@@ -10,9 +10,10 @@ from musashi_ingestion.runtime.supervisor import Supervisor
 
 
 def main():
-    token = os.environ.get("OPERATOR_TOKEN", "")
-    if not token:
-        raise SystemExit("OPERATOR_TOKEN must be set")
+    username = os.environ.get("OPERATOR_USERNAME", "admin")
+    password = os.environ.get("OPERATOR_PASSWORD", "00000000")
+    if not username or not password:
+        raise SystemExit("OPERATOR_USERNAME and OPERATOR_PASSWORD must be nonempty")
     data_dir = Path(os.environ.get("MUSASHI_DATA_DIR", "./data"))
     data_dir.mkdir(parents=True, exist_ok=True)
     config = ConfigStore(data_dir / "config.json")
@@ -21,7 +22,8 @@ def main():
     bind = os.environ.get("MUSASHI_BIND", "127.0.0.1")
     port = int(os.environ.get("MUSASHI_PORT", "8080"))
     try:
-        serve(bind, port, token, config, spool, supervisor)
+        serve(bind, port, username, password, config, spool, supervisor,
+              os.environ.get("MUSASHI_PUBLIC_ORIGIN") or None)
     finally:
         spool.close()
 

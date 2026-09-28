@@ -2,21 +2,42 @@
 
 from __future__ import annotations
 
-import hmac
 import json
 import mimetypes
 import threading
+from http.cookies import SimpleCookie
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
+from musashi_ingestion.api.auth import COOKIE_NAME, SessionStore
 from musashi_ingestion.config.store import ConfigError, RevisionConflict
 from musashi_ingestion.pipeline.spool import SpoolError, make_record
 
 
-def serve(bind, port, token, config_store, spool, supervisor):
-    if not token:
-        raise ValueError("OPERATOR_TOKEN must be nonempty")
+def validate_public_origin(value):
+    """Validate the exact trusted browser origin used behind a TLS proxy."""
+    if value is None:
+        return None
+    try:
+        parsed = urlsplit(value)
+        port = parsed.port
+    except (TypeError, ValueError):
+        raise ValueError("MUSASHI_PUBLIC_ORIGIN must be an HTTPS origin without path, query, or fragment") from None
+    if (parsed.scheme != "https" or not parsed.netloc or parsed.username is not None
+            or parsed.password is not None or parsed.path or parsed.query or parsed.fragment
+            or "@" in parsed.netloc or any(char.isspace() for char in value)
+            or parsed.hostname is None or parsed.netloc.endswith(":")
+            or (port is not None and not 1 <= port <= 65535)):
+        raise ValueError("MUSASHI_PUBLIC_ORIGIN must be an HTTPS origin without path, query, or fragment")
+    return value
+
+
+def serve(bind, port, username, password, config_store, spool, supervisor, public_origin=None):
+    sessions = SessionStore(username, password)
+    public_origin = validate_public_origin(public_origin)
+    expected_origin = public_origin or f"http://127.0.0.1:{port}"
+    expected_authority = urlsplit(expected_origin).netloc
     operation_lock = threading.RLock()
     web_root = Path(__file__).resolve().parent.parent / "web"
 
@@ -31,18 +52,22 @@ def serve(bind, port, token, config_store, spool, supervisor):
             # Request paths and headers can contain operational details; avoid access logs.
             pass
 
-        def _send(self, status, body):
-            data = json.dumps(body, ensure_ascii=False, allow_nan=False).encode("utf-8")
+        def _send(self, status, body=None, headers=()):
+            data = b"" if body is None else json.dumps(body, ensure_ascii=False, allow_nan=False).encode("utf-8")
             self.send_response(status)
-            self.send_header("Content-Type", "application/json; charset=utf-8")
+            if body is not None:
+                self.send_header("Content-Type", "application/json; charset=utf-8")
             self.send_header("Content-Length", str(len(data)))
             self.send_header("Cache-Control", "no-store")
             self.send_header("X-Content-Type-Options", "nosniff")
             self.send_header("X-Frame-Options", "DENY")
             self.send_header("Referrer-Policy", "no-referrer")
             self.send_header("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'self'")
+            for name, value in headers:
+                self.send_header(name, value)
             self.end_headers()
-            self.wfile.write(data)
+            if data:
+                self.wfile.write(data)
 
         def _static(self):
             route = urlsplit(self.path).path
@@ -70,9 +95,43 @@ def serve(bind, port, token, config_store, spool, supervisor):
             self.wfile.write(data)
             return True
 
-        def _authorized(self):
-            supplied = self.headers.get("Authorization", "")
-            return supplied.startswith("Bearer ") and hmac.compare_digest(supplied[7:], token)
+        def _session(self, *, touch=True):
+            cookie = SimpleCookie()
+            try:
+                cookie.load(self.headers.get("Cookie", ""))
+            except Exception:
+                return None
+            morsel = cookie.get(COOKIE_NAME)
+            return sessions.get(morsel.value if morsel else None, touch=touch)
+
+        def _host_is_valid(self):
+            hosts = self.headers.get_all("Host", [])
+            return len(hosts) == 1 and hosts[0] == expected_authority
+
+        def _origin_is_valid(self):
+            origins = self.headers.get_all("Origin", [])
+            if not self._host_is_valid() or len(origins) != 1:
+                return False
+            origin = origins[0]
+            try:
+                parsed = urlsplit(origin)
+            except ValueError:
+                return False
+            return (origin == expected_origin and parsed.scheme in ("http", "https")
+                    and parsed.netloc == expected_authority and not parsed.path
+                    and not parsed.query and not parsed.fragment and parsed.username is None)
+
+        def _csrf_is_valid(self, session):
+            return sessions.csrf_valid(session, self.headers.get("X-CSRF-Token"))
+
+        def _session_cookie(self, session):
+            secure = "; Secure" if public_origin else ""
+            return (f"{COOKIE_NAME}={session.session_id}; Path=/; HttpOnly; SameSite=Strict; "
+                    f"Max-Age=86400{secure}")
+
+        def _clear_session_cookie(self):
+            secure = "; Secure" if public_origin else ""
+            return f"{COOKIE_NAME}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0{secure}"
 
         def _body(self):
             raw_size = self.headers.get("Content-Length", "")
@@ -94,8 +153,21 @@ def serve(bind, port, token, config_store, spool, supervisor):
                 self._send(200, {"process": "ok", "acquisition": supervisor.status()["running"],
                                  "fault": bool(supervisor.status()["acquisition_fault"])})
                 return
-            if not self._authorized():
+            if self.path == "/api/auth/session":
+                if not self._host_is_valid():
+                    self._send(403, {"error": "forbidden"})
+                    return
+                session = self._session()
+                if session is None:
+                    self._send(200, {"authenticated": False})
+                else:
+                    self._send(200, {"authenticated": True, "csrf_token": session.csrf_token})
+                return
+            if self._session() is None:
                 self._send(401, {"error": "unauthorized"})
+                return
+            if not self._host_is_valid():
+                self._send(403, {"error": "forbidden"})
                 return
             if self.path == "/api/config":
                 self._send(200, config_store.load())
@@ -109,9 +181,14 @@ def serve(bind, port, token, config_store, spool, supervisor):
                 self._send(404, {"error": "not found"})
 
         def do_PUT(self):
-            if not self._authorized():
+            session = self._session(touch=False)
+            if session is None:
                 self._send(401, {"error": "unauthorized"})
                 return
+            if not self._origin_is_valid() or not self._csrf_is_valid(session):
+                self._send(403, {"error": "forbidden"})
+                return
+            sessions.touch(session)
             if self.path != "/api/config":
                 self._send(404, {"error": "not found"})
                 return
@@ -135,8 +212,33 @@ def serve(bind, port, token, config_store, spool, supervisor):
                 self._send(400, {"error": str(exc)})
 
         def do_POST(self):
-            if not self._authorized():
+            if self.path == "/api/auth/login":
+                if not self._origin_is_valid():
+                    self._send(403, {"error": "forbidden"})
+                    return
+                try:
+                    body = self._body()
+                except (ValueError, json.JSONDecodeError):
+                    self._send(400, {"error": "invalid request"})
+                    return
+                if not sessions.credentials_valid(body.get("username"), body.get("password")):
+                    self._send(401, {"error": "invalid credentials"})
+                    return
+                session = sessions.create()
+                self._send(200, {"authenticated": True, "csrf_token": session.csrf_token},
+                           (("Set-Cookie", self._session_cookie(session)),))
+                return
+            session = self._session(touch=False)
+            if session is None:
                 self._send(401, {"error": "unauthorized"})
+                return
+            if not self._origin_is_valid() or not self._csrf_is_valid(session):
+                self._send(403, {"error": "forbidden"})
+                return
+            sessions.touch(session)
+            if self.path == "/api/auth/logout":
+                sessions.discard(session)
+                self._send(204, headers=(("Set-Cookie", self._clear_session_cookie()),))
                 return
             try:
                 if self.path == "/api/control/start":
