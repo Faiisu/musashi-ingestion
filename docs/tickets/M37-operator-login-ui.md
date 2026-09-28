@@ -1,7 +1,7 @@
 # M37 — Add session sign-in and sign-out to the operator console
 
-Status: needs-triage
-Completion: not-started
+Status: ready-for-agent
+Completion: unverified
 
 **Depends on:** [M36](M36-session-auth-backend.md).
 
@@ -28,3 +28,7 @@ Completion: not-started
 - [ ] Browser inspection finds no password, session ID, or CSRF token in persistent storage, URL, static assets, or screenshots.
 
 **Verification:** Review the UI on the same-origin local service with representative auth success/failure responses. M35 records access from the operator's separate network device.
+
+## Comments
+
+- 2026-09-28: Implemented the session sign-in UI against M36: page load checks `/api/auth/session`, credentials post to `/api/auth/login`, sign-out posts to `/api/auth/logout`, and all state-changing API calls include the in-memory CSRF token. Removed bearer-token handling. A 401 clears protected page data, cached responses, dialogs, and password inputs before returning to sign-in. A 403 refreshes session status and reports that the action was not repeated. Added focused offline contract checks in `tests/test_web_auth_contract.py`; browser interaction, browser storage/network inspection, and deployment checks remain pending, so completion is unverified.

@@ -37,7 +37,7 @@
           <div class="topbar-actions">
             <div class="refresh-state"><span class="refresh-dot" id="refresh-dot"></span><span id="last-updated">Waiting for connection</span></div>
             <button class="icon-button" id="refresh-button" type="button" aria-label="Refresh data" title="Refresh data"><span class="refresh-icon" aria-hidden="true">↻</span></button>
-            <button class="operator-button" id="operator-button" type="button"><span class="operator-avatar">OP</span><span>Operator</span><span class="chevron">⌄</span></button>
+            <button class="operator-button" id="operator-button" type="button" aria-label="Sign out of operator session"><span class="operator-avatar" aria-hidden="true">OP</span><span>Sign out</span></button>
           </div>
         </header>
 
@@ -49,15 +49,17 @@
       </main>
     </div>
 
-    <dialog id="token-dialog" class="dialog token-dialog" aria-labelledby="token-title">
-      <form id="token-form" method="dialog">
-        <div class="dialog-kicker">SECURE SESSION</div>
-        <h2 id="token-title">Connect to the operator console</h2>
-        <p>Enter your operator token to view system status and manage the service. The token stays in this page's memory and is cleared when you close or reload it.</p>
-        <label for="token-input">Operator token</label>
-        <div class="token-input-wrap"><input id="token-input" type="password" autocomplete="off" spellcheck="false" required><button id="token-visibility" type="button" class="text-button">Show</button></div>
-        <div id="token-error" class="field-error" role="alert"></div>
-        <button class="button button-primary dialog-submit" type="submit">Connect <span aria-hidden="true">→</span></button>
+    <dialog id="login-dialog" class="dialog login-dialog" aria-labelledby="login-title">
+      <form id="login-form">
+        <div class="dialog-kicker">OPERATOR SIGN IN</div>
+        <h2 id="login-title">Sign in to Musashi</h2>
+        <p>Use the shared operator account to view system status and manage the service.</p>
+        <label for="username-input">Username</label>
+        <input id="username-input" name="username" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" required>
+        <label for="password-input">Password</label>
+        <div class="password-input-wrap"><input id="password-input" name="password" type="password" autocomplete="current-password" required><button id="password-visibility" type="button" class="text-button" aria-controls="password-input">Show</button></div>
+        <div id="login-error" class="field-error" role="alert" aria-live="assertive"></div>
+        <button id="login-submit" class="button button-primary dialog-submit" type="submit">Sign in <span aria-hidden="true">→</span></button>
       </form>
     </dialog>
 

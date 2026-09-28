@@ -2,7 +2,7 @@
   "use strict";
 
   const pageNames = {overview: "Overview", machines: "Machines", destinations: "Destinations", records: "Recent data"};
-  const state = {token: "", page: "overview", health: null, config: null, status: null, records: [], scans: [], busy: false, edit: null, refreshTimer: null};
+  const state = {csrfToken: "", authenticated: false, page: "overview", health: null, config: null, status: null, records: [], scans: [], busy: false, edit: null, refreshTimer: null};
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
@@ -11,16 +11,42 @@
   const ago = value => { if (!value) return "No data yet"; const seconds = Math.max(0, Math.floor((Date.now() - new Date(value).getTime()) / 1000)); if (!Number.isFinite(seconds)) return "—"; if (seconds < 60) return `${seconds} seconds ago`; if (seconds < 3600) return `${Math.floor(seconds / 60)} minutes ago`; if (seconds < 86400) return `${Math.floor(seconds / 3600)} hours ago`; return `${Math.floor(seconds / 86400)} days ago`; };
   const entries = value => Object.entries(value || {});
   const setNotice = (message, kind = "", duration = 4500) => { const node = $("#notice"); node.textContent = message; node.className = `notice ${kind}`; node.hidden = !message; if (duration) window.setTimeout(() => { if (node.textContent === message) node.hidden = true; }, duration); };
+  async function syncSession() {
+    let response;
+    try { response = await fetch("/api/auth/session", {cache:"no-store", credentials:"same-origin"}); }
+    catch { throw new Error("Could not reach the service. Check your network and try again."); }
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error("Could not check the operator session. Try again.");
+    state.authenticated = body.authenticated === true;
+    state.csrfToken = state.authenticated && typeof body.csrf_token === "string" ? body.csrf_token : "";
+    return state.authenticated;
+  }
+
+  async function refreshSessionAfterForbidden() {
+    try {
+      if (!await syncSession()) clearSessionState({showLogin:true});
+    } catch { /* Keep the current page state; the failed action is never replayed. */ }
+  }
+
   const api = async (path, options = {}) => {
     const headers = new Headers(options.headers || {});
-    if (state.token) headers.set("Authorization", `Bearer ${state.token}`);
+    const method = (options.method || "GET").toUpperCase();
+    if (method !== "GET" && method !== "HEAD" && path !== "/api/auth/login" && state.csrfToken) headers.set("X-CSRF-Token", state.csrfToken);
     if (options.body !== undefined) headers.set("Content-Type", "application/json");
     let response;
-    try { response = await fetch(path, {...options, headers, body: options.body === undefined ? undefined : JSON.stringify(options.body), cache:"no-store"}); }
+    try { response = await fetch(path, {...options, method, headers, credentials:"same-origin", body: options.body === undefined ? undefined : JSON.stringify(options.body), cache:"no-store"}); }
     catch { throw new Error("Could not reach the service. Check your network and try again."); }
     const type = response.headers.get("content-type") || "";
     const body = type.includes("application/json") ? await response.json().catch(() => ({})) : {};
-    if (response.status === 401) { forgetToken(); throw new Error("Invalid or expired operator token."); }
+    if (response.status === 401) {
+      if (path === "/api/auth/login") throw new Error("Invalid username or password.");
+      clearSessionState({showLogin:true});
+      throw new Error("Your session has expired. Sign in again.");
+    }
+    if (response.status === 403) {
+      await refreshSessionAfterForbidden();
+      throw new Error("This action was denied. Review your session and try again. The action was not repeated.");
+    }
     if (!response.ok) {
       if (response.status === 422 && body.errors) throw new Error(Object.entries(body.errors).map(([key, message]) => `${key}: ${message}`).join(" · "));
       throw new Error(body.error || `Request failed (${response.status})`);
@@ -28,9 +54,19 @@
     return body;
   };
 
-  function forgetToken() {
-    state.token = "";
-    if (!$("#token-dialog").open) $("#token-dialog").showModal();
+  function clearSessionState({showLogin = false} = {}) {
+    state.csrfToken = ""; state.authenticated = false;
+    state.config = null; state.status = null; state.records = []; state.scans = [];
+    state.edit = null;
+    if (state.refreshTimer) clearInterval(state.refreshTimer);
+    state.refreshTimer = null;
+    $("#machine-count").textContent = "0"; $("#destination-count").textContent = "0";
+    $$("input[type='password']").forEach(input => { input.value = ""; });
+    $("#edit-fields").replaceChildren();
+    $("#page-content").replaceChildren();
+    if ($("#edit-dialog").open) $("#edit-dialog").close();
+    if ($("#confirm-dialog").open) $("#confirm-dialog").close();
+    if (showLogin && !$("#login-dialog").open) $("#login-dialog").showModal();
   }
 
   function setBusy(value) {
@@ -44,7 +80,7 @@
     setBusy(true);
     try {
       state.health = await api("/health");
-      if (state.token) {
+      if (state.authenticated) {
         const [config, status, records, scans] = await Promise.all([
           api("/api/config"), api("/api/status"), api("/api/records"), api("/api/scans")
         ]);
@@ -60,11 +96,11 @@
       } else {
         $("#connection-dot").className = `live-dot ${state.health.process === "ok" ? "online" : "offline"}`;
         $("#connection-label").textContent = state.health.process === "ok" ? "Service online" : "Service error";
-        $("#last-updated").textContent = "Operator token required";
+        $("#last-updated").textContent = "Sign in to view system data";
       }
     } catch (error) {
       if (!quiet) setNotice(error.message, "error", 6500);
-      if (state.token) renderError(error.message);
+      if (state.authenticated) renderError(error.message);
     } finally { setBusy(false); }
   }
 
@@ -278,14 +314,35 @@
   });
 
   $("#refresh-button").addEventListener("click",()=>refresh());
-  $("#token-form").addEventListener("submit",async event=>{
-    event.preventDefault(); const input=$("#token-input"); state.token=input.value; input.value=""; $("#token-error").textContent=""; $("#token-dialog").close();
-    await refresh({quiet:true});
-    if (!state.config) { state.token=""; if (!$("#token-dialog").open) $("#token-dialog").showModal(); $("#token-error").textContent="Authentication failed. Check your token and try again."; }
-    else if (!state.refreshTimer) state.refreshTimer=window.setInterval(()=>refresh({quiet:true}),8000);
+  $("#login-dialog").addEventListener("cancel",event=>{if(!state.authenticated)event.preventDefault();});
+  $("#login-form").addEventListener("submit",async event=>{
+    event.preventDefault();
+    const username=$("#username-input").value.trim(), password=$("#password-input").value;
+    const error=$("#login-error"), submit=$("#login-submit");
+    $("#password-input").value=""; error.textContent=""; submit.disabled=true;
+    try {
+      const result=await api("/api/auth/login",{method:"POST",body:{username,password}});
+      state.authenticated=result.authenticated===true;
+      state.csrfToken=typeof result.csrf_token==="string"?result.csrf_token:"";
+      $("#login-dialog").close();
+      await refresh({quiet:true});
+      if (state.authenticated && state.config && !state.refreshTimer) state.refreshTimer=window.setInterval(()=>refresh({quiet:true}),8000);
+    } catch (failure) {
+      error.textContent=failure.message || "Sign-in failed. Check your connection and try again.";
+      if (!$("#login-dialog").open) $("#login-dialog").showModal();
+      $("#username-input").focus();
+    } finally { submit.disabled=false; }
   });
-  $("#token-visibility").addEventListener("click",event=>{const input=$("#token-input");input.type=input.type==="password"?"text":"password";event.currentTarget.textContent=input.type==="password"?"Show":"Hide";});
-  $("#operator-button").addEventListener("click",()=>{state.token="";state.config=null;state.status=null;state.records=[];state.scans=[];if(state.refreshTimer)clearInterval(state.refreshTimer);state.refreshTimer=null;renderError("You have signed out of the operator session.");$("#token-dialog").showModal();});
+  $("#password-visibility").addEventListener("click",event=>{const input=$("#password-input");input.type=input.type==="password"?"text":"password";event.currentTarget.textContent=input.type==="password"?"Show":"Hide";});
+  $("#operator-button").addEventListener("click",async()=>{
+    const button=$("#operator-button"); button.disabled=true;
+    try {
+      await api("/api/auth/logout",{method:"POST",body:{}});
+      clearSessionState({showLogin:true});
+      setNotice("You have signed out.");
+    } catch(error) { setNotice(error.message,"error",7000); }
+    finally { button.disabled=false; }
+  });
   $("#edit-form").addEventListener("submit",saveEdit);
   $$(".close-dialog").forEach(button=>button.addEventListener("click",()=>$("#edit-dialog").close()));
   $("#edit-fields").addEventListener("change",event=>{
@@ -300,7 +357,21 @@
   }
   window.addEventListener("hashchange",route);
   $("#connection-address").textContent = `API · ${location.host || "same origin"}`;
-  refresh({quiet:true});
-  window.setTimeout(()=>{if(!state.token&&!$("#token-dialog").open)$("#token-dialog").showModal();},240);
+  async function start() {
+    try {
+      if (await syncSession()) {
+        await refresh({quiet:true});
+        if (state.authenticated && state.config) state.refreshTimer=window.setInterval(()=>refresh({quiet:true}),8000);
+      } else {
+        await refresh({quiet:true});
+        $("#login-dialog").showModal();
+      }
+    } catch(error) {
+      await refresh({quiet:true});
+      $("#login-dialog").showModal();
+      $("#login-error").textContent=error.message;
+    }
+  }
+  start();
   route();
 })();
