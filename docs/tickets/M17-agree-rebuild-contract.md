@@ -44,3 +44,4 @@ The initial replacement map is: B01 → M22; B02 → M20, M21, M31; B03 → M20,
 ## Comments
 
 - 2026-09-28: Working contract: [rebuild-contract.md](../specs/rebuild-contract.md). Limits are provisional; manual cross-check and site sizing/review are still open. Synthetic checks do not establish hardware acceptance.
+- 2026-09-28: Added the per-family coverage/evidence matrix, source review record, and one-primary-ticket regression ownership for B01–B10 in the working contract. Maintainer acceptance remains required before this ticket can be verified; site measurements remain M33 inputs.
