@@ -10,7 +10,7 @@ Operators can select one or more destinations: MQTT, PostgreSQL, and InfluxDB. C
 
 ## Configuration and control through the REST API
 
-The service is operated through its management REST API and configuration file; this project does not include a browser interface. The API exposes health and status reads, configuration read/update, machine and destination connection tests, and runtime Start/Stop operations. Configuration updates use revision checks, validation, secret redaction, and are allowed only while acquisition is stopped.
+The service is currently operated through its management REST API and configuration file. A browser operator interface is planned in [M34](tickets/M34-frontend-api-contract.md) and [M35](tickets/M35-operator-frontend.md). It will use the same restricted management origin and API, with no direct machine or destination access. The API exposes health and status reads, configuration read/update, machine and destination connection tests, and runtime Start/Stop operations; connection tests remain M21 work. Configuration updates use revision checks, validation, secret redaction, and are allowed only while acquisition is stopped.
 
 To change a model, connection, interval, or destination, stop acquisition, update configuration, test the connection, then start acquisition. Status and inventory coverage are available from the API. Auto-start after reboot is off by default until recovery has been tested.
 
@@ -71,4 +71,4 @@ compose.yml
 .env.example
 ```
 
-The backend package, API, adapters, SQLite spool, delivery modules, Dockerfile, and Compose file now exist. The II example previously read a real machine, but no hardware is connected now. IV and destination behavior still need integration and site confirmation. Operators configure and control the service through its REST API; no frontend application is in scope.
+The backend package, API, adapters, SQLite spool, delivery modules, Dockerfile, and Compose file now exist. The II example previously read a real machine, but no hardware is connected now. IV and destination behavior still need integration and site confirmation. Operators currently configure and control the service through its REST API; the planned browser UI has no implementation or acceptance evidence yet.
