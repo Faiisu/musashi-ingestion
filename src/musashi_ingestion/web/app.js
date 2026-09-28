@@ -2,7 +2,7 @@
   "use strict";
 
   const pageNames = {overview: "Overview", machines: "Machines", destinations: "Destinations", records: "Recent data"};
-  const state = {csrfToken: "", authenticated: false, page: "overview", health: null, config: null, status: null, records: [], scans: [], busy: false, edit: null, refreshTimer: null};
+  const state = {csrfToken: "", authenticated: false, page: "overview", health: null, config: null, status: null, records: [], scans: [], busy: false, edit: null, refreshTimer: null, machineFilter: "all", machineQuery: ""};
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
@@ -127,6 +127,11 @@
   function machineStatus(machine) { return state.status?.machines?.[machine.id] || {}; }
   function destinationStatus(destination) { return state.status?.destinations?.[destination.id] || {}; }
 
+  function machineState(machine) {
+    const live = machineStatus(machine);
+    return live.state || (live.worker_alive ? "running" : "stopped");
+  }
+
   function machineRow(machine) {
     const live = machineStatus(machine);
     const endpoint = machine.model === "IV" ? `${machine.host}:${machine.port || 1024}` : machine.port;
@@ -137,7 +142,15 @@
   function machineCard(machine) {
     const live = machineStatus(machine);
     const endpoint = machine.model === "IV" ? `${machine.host}:${machine.port || 1024}` : machine.port;
-    return `<article class="entity-card"><div class="entity-head"><div class="entity-identity"><span class="device-avatar">${esc(machine.model)}</span><div><h3>${esc(machine.id)}</h3><p>${machine.model === "II" ? "Musashi Super ΣCM II" : "Musashi Super ΣCM IV"}</p></div></div><div class="entity-actions"><button class="small-button" data-action="edit-machine" data-id="${esc(machine.id)}">Edit</button><button class="small-button danger" data-action="remove-machine" data-id="${esc(machine.id)}">Remove</button></div></div><div class="entity-detail-grid"><div><div class="detail-label">ENDPOINT</div><div class="detail-value mono">${esc(endpoint)}</div></div><div><div class="detail-label">POLL INTERVAL</div><div class="detail-value">${esc(machine.poll_interval_seconds ?? 1)} sec</div></div><div><div class="detail-label">LAST SUCCESS</div><div class="detail-value">${esc(ago(live.last_success))}</div></div><div><div class="detail-label">POLL LAG / SKIPPED</div><div class="detail-value">${number(live.poll_lag_seconds || 0)} sec · ${number(live.skipped_polls || 0)} cycles</div></div></div><div class="entity-foot"><span>${live.error ? `<span class="quality error">${esc(live.error)}</span>` : `Inventory · every ${esc(machine.inventory_interval_seconds ?? 3600)} sec`}</span>${statusBadge(live)}</div></article>`;
+    const currentState = machineState(machine);
+    const locked = Boolean(state.status?.running);
+    return `<article class="machine-card" data-machine-state="${esc(currentState)}">
+      <div class="machine-card-top"><span class="machine-model" aria-hidden="true">Σ${esc(machine.model)}</span><div class="machine-card-title"><h2>${esc(machine.id)}</h2><p>${machine.model === "II" ? "Musashi Super ΣCM II" : "Musashi Super ΣCM IV"}</p></div><div class="machine-card-actions"><button class="small-button" data-action="edit-machine" data-id="${esc(machine.id)}" ${locked ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Edit</button><button class="small-button danger" data-action="remove-machine" data-id="${esc(machine.id)}" ${locked ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Remove</button></div></div>
+      <div class="machine-state-line">${statusBadge(live)}<span>${live.error ? "Attention required" : live.last_success ? `Last read ${esc(ago(live.last_success))}` : "Waiting for first read"}</span></div>
+      ${live.error ? `<div class="machine-error" role="status">${esc(live.error)}</div>` : ""}
+      <div class="machine-endpoint"><span class="detail-label">${machine.model === "IV" ? "NETWORK ENDPOINT" : "SERIAL DEVICE"}</span><strong class="mono">${esc(endpoint || "Not configured")}</strong></div>
+      <dl class="machine-specs"><div><dt>Poll interval</dt><dd>${esc(machine.poll_interval_seconds ?? 1)} sec</dd></div><div><dt>Inventory scan</dt><dd>Every ${esc(machine.inventory_interval_seconds ?? 3600)} sec</dd></div><div><dt>Poll lag</dt><dd>${number(live.poll_lag_seconds || 0)} sec</dd></div><div><dt>Skipped polls</dt><dd>${number(live.skipped_polls || 0)}</dd></div></dl>
+    </article>`;
   }
 
   function destinationCard(destination) {
@@ -168,8 +181,29 @@
 
   function renderMachines() {
     const machines = state.config?.machines || [], running = Boolean(state.status?.running);
-    const action = `<button class="button button-primary" data-action="add-machine" ${running ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>＋ Add machine</button>`;
-    return `${pageHeading("DEVICE MANAGEMENT", "Machines", "Manage Musashi II and IV devices that the service reads.", action)}${running?`<div class="notice warning" style="position:static;transform:none;max-width:none;margin-bottom:14px">Stop acquisition before adding, editing, or removing configuration.</div>`:""}<div class="toolbar"><span class="toolbar-note">${number(machines.length)} configured · Status refreshes automatically</span></div><div class="machine-cards">${machines.length?machines.map(machineCard).join(""):emptyPanel("No machines configured", "Add your first machine to begin setting up collection.", `<button class="button button-primary" data-action="add-machine">Add machine</button>`)}</div>`;
+    const active = machines.filter(machine => ["running", "starting"].includes(machineState(machine))).length;
+    const faults = machines.filter(machine => machineState(machine) === "fault").length;
+    const stopped = machines.length - active - faults;
+    const action = `<button class="button button-primary" data-action="add-machine" ${running ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Add machine <span aria-hidden="true">＋</span></button>`;
+    const filterButton = (key, label, count) => `<button type="button" class="machine-filter ${state.machineFilter === key ? "active" : ""}" data-machine-filter="${key}" aria-pressed="${state.machineFilter === key}">${label}<span>${number(count)}</span></button>`;
+    const results = machines.length ? `<div id="machine-results" class="machine-cards">${renderMachineResults(machines)}</div>` : `<div class="machine-empty"><span class="machine-empty-mark" aria-hidden="true">Σ</span><h2>No machines configured</h2><p>Add a Musashi II or IV device to begin setting up collection.</p><button class="button button-primary" data-action="add-machine" ${running ? "disabled" : ""}>Add your first machine</button></div>`;
+    return `${pageHeading("DEVICE MANAGEMENT", "Machines", "Monitor device health and manage collection endpoints.", action)}
+      ${running ? `<div class="machine-lock-notice"><span aria-hidden="true">i</span><span>Acquisition is running. Stop it before changing machine configuration.</span></div>` : ""}
+      <section class="machine-summary" aria-label="Machine status summary"><div><span class="machine-summary-label">Configured</span><strong>${number(machines.length)}</strong></div><div><span class="machine-summary-label">Active</span><strong class="summary-good">${number(active)}</strong></div><div><span class="machine-summary-label">Needs attention</span><strong class="summary-danger">${number(faults)}</strong></div><div><span class="machine-summary-label">Stopped</span><strong>${number(stopped)}</strong></div></section>
+      <section class="machine-browser" aria-label="Machine list"><div class="machine-browser-head"><div><h2>All machines</h2><p>Status updates automatically</p></div><label class="machine-search"><span aria-hidden="true">⌕</span><input id="machine-search" type="search" value="${esc(state.machineQuery)}" placeholder="Search machines" aria-label="Search machines"></label></div><div class="machine-filter-row" role="group" aria-label="Filter machines">${filterButton("all", "All", machines.length)}${filterButton("running", "Active", active)}${filterButton("fault", "Needs attention", faults)}${filterButton("stopped", "Stopped", stopped)}</div></section>
+      ${results}`;
+  }
+
+  function renderMachineResults(machines) {
+    const query = state.machineQuery.trim().toLocaleLowerCase();
+    const filtered = machines.filter(machine => {
+      const currentState = machineState(machine);
+      const matchesFilter = state.machineFilter === "all" || (state.machineFilter === "running" ? ["running", "starting"].includes(currentState) : currentState === state.machineFilter);
+      const endpoint = machine.model === "IV" ? `${machine.host}:${machine.port || 1024}` : machine.port;
+      return matchesFilter && `${machine.id} ${machine.model} ${endpoint}`.toLocaleLowerCase().includes(query);
+    });
+    if (!filtered.length) return `<div class="machine-no-results"><strong>No matching machines</strong><span>Try another search or status filter.</span></div>`;
+    return filtered.map(machineCard).join("");
   }
 
   function renderDestinations() {
@@ -299,6 +333,8 @@
   }
 
   document.addEventListener("click", event => {
+    const filter = event.target.closest("[data-machine-filter]");
+    if (filter) { state.machineFilter = filter.dataset.machineFilter; render(); return; }
     const target = event.target.closest("[data-action], [data-nav]");
     if (!target) return;
     if (target.dataset.nav) { state.page = target.dataset.nav; location.hash = `#${state.page}`; render(); return; }
@@ -311,6 +347,14 @@
     else if (action === "add-destination") openEdit("destination");
     else if (action === "edit-destination") openEdit("destination",state.config.destinations.find(item=>item.id===id));
     else if (action === "remove-destination") removeItem("destination",id);
+  });
+
+  document.addEventListener("input", event => {
+    if (event.target.id !== "machine-search") return;
+    state.machineQuery = event.target.value;
+    const machines = state.config?.machines || [];
+    const results = $("#machine-results");
+    if (results) results.innerHTML = renderMachineResults(machines);
   });
 
   $("#refresh-button").addEventListener("click",()=>refresh());
