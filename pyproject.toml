@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68,<81"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "musashi-ingestion"
+version = "0.1.0"
+description = "Read-only Musashi II and IV ingestion backend"
+requires-python = ">=3.11"
+dependencies = [
+  "pyserial>=3.5,<4",
+  "paho-mqtt>=2,<3",
+  "psycopg[binary]>=3.2,<4",
+  "influxdb-client>=1.40,<2",
+]
+
+[project.scripts]
+musashi-ingestion = "musashi_ingestion.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]

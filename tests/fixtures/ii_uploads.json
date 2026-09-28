@@ -1,0 +1,15 @@
+{
+  "evidence": "synthetic-manual-derived; no current hardware capture",
+  "manual": "examples/Instruction Manual Super ΣCMII EN.pdf",
+  "uploads": [
+    {"code": "D01", "page": 89, "payload": "DA01P0987T00654V0321M2NSIGMA     ", "expected": {"pressure_kpa": 98.7, "dispense_time_ms": 654, "vacuum_kpa_magnitude": 3.21, "mode_code": 2, "product_name": "SIGMA"}, "parser_evidence": "retained reader uses the same P/T/V/M/N layout"},
+    {"code": "D02", "page": 89, "payload": "DA02S2A2", "expected": {"syringe_size_code": 2, "syringe_size_cc": 10, "adapter_tube_code": 2, "adapter_tube_m": 1.0}},
+    {"code": "D03", "page": 90, "payload": "DA03A+123D085V-0031", "expected": {"alpha_correction": 123, "delta_correction_percent": 85, "vacuum_correction_kpa": -0.31}},
+    {"code": "D04", "page": 90, "payload": "DA04L050C006", "expected": {"remaining_detection_percent": 50, "remaining_detection_count": 6}},
+    {"code": "D05", "page": 91, "payload": "DA05R050", "expected": {"remaining_volume_percent": 50}},
+    {"code": "D06", "page": 91, "payload": "DA06CH020", "expected": {"displayed_channel": 20}},
+    {"code": "D07", "page": 91, "payload": "DA07CT12345678", "expected": {"dispense_count": 12345678}},
+    {"code": "D08", "page": 92, "payload": "DA08VR0100SP5", "expected": {"software_version_raw": "0100", "model_specification": "V5"}},
+    {"code": "D09", "page": 92, "payload": "DA09SY0110010", "expected": {"sampled_syringe_sizes_cc": [5, 10, 50]}}
+  ]
+}

@@ -1,0 +1,11 @@
+.env
+.venv/
+data/
+config/
+examples/
+tests/
+docs/
+.agents/
+*.db
+*.sqlite*
+__pycache__/

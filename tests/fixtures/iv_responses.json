@@ -1,0 +1,16 @@
+{
+  "evidence": "synthetic-manual-derived; no current firmware capture",
+  "manual": "examples/Instruction Manual Super ΣCMⅣ EN 1.0.pdf",
+  "communication_section_pages": "19–36",
+  "responses": {
+    "/v1/status/main": {"status": "ready", "nested": {"temperature": 24.5}},
+    "/v1/status/error": null,
+    "/v1/info/recipe/range": {"min": 0, "max": 1},
+    "/v1/info/recipe/data/all": {"recipe": [{"no": 0, "comment": "synthetic"}]},
+    "/v1/info/recipe/data/2": {"recipe": [{"no": 1, "comment": "synthetic fallback"}]},
+    "/v1/info/channel/range": {"min": 0, "max": 1},
+    "/v1/info/channel/data/all": {"ch": [{"no": 0, "disPress": 35.5}]},
+    "/v1/info/channel/data/2": {"ch": [{"no": 1, "disPress": 40.0}]}
+  },
+  "fault_cases": ["redirect", "oversized-export", "timeout", "malformed-json", "missing-id"]
+}
