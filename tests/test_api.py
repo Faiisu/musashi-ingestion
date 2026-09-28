@@ -151,6 +151,20 @@ class ApiTests(unittest.TestCase):
                 with request("/api/records", cookie=f"musashi_session={session_cookie}") as response:
                     self.assertEqual(json.load(response)["records"][0]["record_id"], record_id)
 
+                with self.assertRaises(HTTPError) as no_delete_csrf:
+                    request("/api/spool", method="DELETE", cookie=f"musashi_session={session_cookie}",
+                            req_origin=origin)
+                self.assertEqual(no_delete_csrf.exception.code, 403)
+                no_delete_csrf.exception.close()
+                with request("/api/spool", method="DELETE", cookie=f"musashi_session={session_cookie}",
+                             csrf=login["csrf_token"], req_origin=origin) as response:
+                    cleared = json.load(response)
+                    self.assertEqual(response.status, 200)
+                self.assertEqual(cleared["records"], 1)
+                self.assertEqual(cleared["pending_deliveries"], 0)
+                with request("/api/records", cookie=f"musashi_session={session_cookie}") as response:
+                    self.assertEqual(json.load(response)["records"], [])
+
                 with request("/api/auth/logout", method="POST", cookie=f"musashi_session={session_cookie}",
                              csrf=login["csrf_token"], req_origin=origin) as response:
                     self.assertEqual(response.status, 204)

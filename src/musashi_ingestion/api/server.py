@@ -265,6 +265,29 @@ def serve(bind, port, username, password, config_store, spool, supervisor, publi
             except (ValueError, json.JSONDecodeError) as exc:
                 self._send(400, {"error": str(exc)})
 
+        def do_DELETE(self):
+            session = self._session(touch=False)
+            if session is None:
+                self._send(401, {"error": "unauthorized"})
+                return
+            if not self._origin_is_valid() or not self._csrf_is_valid(session):
+                self._send(403, {"error": "forbidden"})
+                return
+            sessions.touch(session)
+            if self.path != "/api/spool":
+                self._send(404, {"error": "not found"})
+                return
+            try:
+                with operation_lock:
+                    state = supervisor.status()
+                    workers = (*state["machines"].values(), *state["destinations"].values())
+                    if any(item["worker_alive"] for item in workers):
+                        self._send(409, {"error": "stop all machine and destination workers before clearing the spool"})
+                        return
+                    self._send(200, spool.clear_all())
+            except SpoolError as exc:
+                self._send(507, {"error": str(exc)})
+
         def do_POST(self):
             if self.path == "/api/auth/login":
                 if not self._origin_is_valid():
@@ -309,7 +332,8 @@ def serve(bind, port, username, password, config_store, spool, supervisor, publi
                     record = make_record(machine_id, "II", "status", "D01",
                                          {"synthetic": True, "pressure_kpa": 100},
                                          channel_id=1, evidence_type="simulated")
-                    spool.commit(record)
+                    with operation_lock:
+                        spool.commit(record)
                     self._send(201, {"record_id": record["record_id"]})
                 else:
                     self._send(404, {"error": "not found"})

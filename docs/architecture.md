@@ -39,6 +39,8 @@ Commit records to the SQLite spool before delivery. Track acknowledgments separa
 
 The spool has a size limit. The [execution contract](specs/agent-execution-contract.md) sets a configurable count for pruning unassigned and fully acknowledged history under quota pressure; a later destination can backfill only the retained window. If a record cannot be committed because protected data fills the spool, stop reads and show a fault. After restart, committed records remain available for retry and an incomplete inventory scan remains visible; the worker starts a new scan rather than resuming its old request cursor. A read that finished but was not committed can be lost. Show gaps and faults in status. Size the spool from status rates, channel/recipe counts, large exports, machine count, and required outage duration.
 
+An authenticated operator can clear all locally retained spool history from the Recent data page while every machine and destination worker is stopped. The clear removes local records, delivery state, scan and fault history, and stored destination identities; it keeps the destination configuration and the spool's Influx point identity sequence. Pending deliveries are discarded, while data already accepted by external destinations remains there. See [ADR 0004](adr/0004-operator-spool-clear.md).
+
 ## Docker and security
 
 Compose runs only the ingestion application. MQTT, PostgreSQL, and InfluxDB are external services. Persist config and spool in volumes. Map only the required USB devices instead of using `privileged: true` or mounting all of `/dev`. Check that the container can reach IV IP addresses and destinations, and can open the serial devices on the real host.

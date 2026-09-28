@@ -36,6 +36,7 @@ Completion: unverified
 - [ ] Changing one endpoint moves exactly that destination's pending rows to the new endpoint; confirmed rows and other lanes stay unchanged, record IDs remain stable, and the audit records before/after counts.
 - [ ] With no destination, collection still commits; a destination added later receives only retained history and the backfill boundary is visible.
 - [ ] WAL growth, pending age/count, scan age, and disk use are observable and bounded by a documented policy.
+- [ ] An authenticated operator can clear all local spool history only after every machine and destination worker stops; pending deliveries are included, destination-side data is untouched, and installation/point identity is preserved.
 
 **Verification:** Exercise real temporary SQLite files, process kill points, concurrent workers, full disk/quota simulation, retained-history backfill, and endpoint reconfiguration while an old forwarder has work in flight.
 
@@ -47,3 +48,4 @@ Completion: unverified
 - 2026-09-28: Pruning now deletes scan coverage and old records in one SQLite transaction. An offline quota regression confirmed delivered history is pruned and pending rows instead cause a visible spool fault. The full kill-point and disk-full matrix remains open.
 - 2026-09-28: `tests/test_recovery.py` killed a process with an open write transaction. On reopening the real SQLite file, the earlier committed record, pending target assignment, and partial scan survived; the uncommitted row did not. A simulated SQLite `max_page_count` full error rejected the write and left a visible fault. A changed target received no old pending row. These are selected crash points and a page-limit simulation, not process-kill coverage at every commit boundary or an actual full filesystem.
 - 2026-09-28: The page-limit test exposed a recovery bug: a SQLite write error escaped as `OperationalError`, so the read loop could continue. Spool write failures now raise `SpoolError`, which the machine worker treats as a stopping fault. A second test injects failure while writing the fault row; the stopping error still propagates, but the fault cannot be durable when SQLite has no write space.
+- 2026-09-29: Added the operator spool-clear path and tests for local-history removal, identity preservation, and session/CSRF protection. Verification has not been run; this acceptance check remains unverified.

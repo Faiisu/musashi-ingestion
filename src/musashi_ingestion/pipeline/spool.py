@@ -132,6 +132,34 @@ class Spool:
         self.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
         self.db.execute("VACUUM")
 
+    def clear_all(self):
+        """Remove local spool history and delivery state while preserving point identity."""
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            counts = dict(self.db.execute("""SELECT
+              (SELECT count(*) FROM records) records,
+              (SELECT count(*) FROM deliveries WHERE acknowledged_at IS NULL) pending_deliveries,
+              (SELECT count(*) FROM scans) scans,
+              (SELECT count(*) FROM faults) faults,
+              (SELECT count(*) FROM targets) destination_identities""").fetchone())
+            for table in ("scan_outcomes", "scan_expected", "scan_items", "scans",
+                          "deliveries", "records", "faults", "targets"):
+                self.db.execute(f"DELETE FROM {table}")
+            self.db.execute("COMMIT")
+        except sqlite3.Error as exc:
+            if self.db.in_transaction:
+                self.db.execute("ROLLBACK")
+            self._write_failure(f"spool clear failed: {type(exc).__name__}", exc)
+
+        try:
+            self.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            self.db.execute("VACUUM")
+            counts["storage_reclaimed"] = True
+        except sqlite3.Error:
+            # The deletion is already committed. SQLite can still reuse its free pages.
+            counts["storage_reclaimed"] = False
+        return counts
+
     def commit(self, record: dict, targets=()):
         required = ("record_id", "machine_id", "model", "record_type", "source", "observed_at", "values", "evidence_type")
         if (not isinstance(record, dict) or record.get("version") != 1
@@ -279,5 +307,5 @@ def _serialized(method):
 
 for _name in ("close", "register_target", "commit", "list_records", "pending", "ack",
               "begin_scan", "record_scan_item", "finish_scan", "incomplete_scans", "scan_items", "stats",
-              "prune_acknowledged", "scan_snapshot", "list_scans"):
+              "prune_acknowledged", "clear_all", "scan_snapshot", "list_scans"):
     setattr(Spool, _name, _serialized(getattr(Spool, _name)))

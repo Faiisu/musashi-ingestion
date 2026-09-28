@@ -99,6 +99,37 @@ class CoreTests(unittest.TestCase):
             self.assertIsNotNone(spool.stats()["fault"])
             spool.close()
 
+    def test_clear_spool_removes_local_history_and_preserves_point_identity(self):
+        with tempfile.TemporaryDirectory() as directory:
+            spool = Spool(Path(directory) / "spool.sqlite3")
+            target = spool.register_target("mqtt", {"host": "synthetic"})
+            record = make_record("ii", "II", "status", "D01", {"value": "synthetic"})
+            spool.commit(record, [target])
+            scan = spool.begin_scan("ii", "inventory", expected_items=["D01:1"])
+            spool.record_scan_item(scan, "D01:1", record["record_id"])
+            spool._fault("synthetic fault")
+            stored = spool.list_records(limit=1)[0]
+
+            result = spool.clear_all()
+
+            self.assertEqual(result["records"], 1)
+            self.assertEqual(result["pending_deliveries"], 1)
+            self.assertEqual(result["scans"], 1)
+            self.assertEqual(result["faults"], 1)
+            self.assertEqual(result["destination_identities"], 1)
+            self.assertEqual(spool.stats()["records"], 0)
+            self.assertEqual(spool.stats()["pending"], 0)
+            self.assertEqual(spool.list_scans(), [])
+            self.assertIsNone(spool.stats()["fault"])
+            self.assertEqual(spool.db.execute("SELECT count(*) FROM targets").fetchone()[0], 0)
+            next_record = make_record("ii", "II", "status", "D01", {"value": "next"},
+                                      observed_at=record["observed_at"])
+            spool.commit(next_record)
+            stored_next = spool.list_records(limit=1)[0]
+            self.assertEqual(stored_next["installation_id"], stored["installation_id"])
+            self.assertGreater(stored_next["point_time_ns"], stored["point_time_ns"])
+            spool.close()
+
 
 if __name__ == "__main__":
     unittest.main()

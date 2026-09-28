@@ -24,6 +24,9 @@ A configured output endpoint of one kind: MQTT, PostgreSQL, or InfluxDB. Its con
 **Pending delivery**:
 An observation assigned to a destination lane but not yet confirmed by that destination. Retrying it preserves the observation's record ID.
 
+**Spool clear**:
+An operator action that removes locally retained observations, delivery state, inventory scan history, and fault history. It does not remove data already accepted by external destinations.
+
 **Operator account**:
 The shared local identity used to access the Musashi management console and its browser-facing API. The account is named `admin`; it does not identify an individual operator.
 

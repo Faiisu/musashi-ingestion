@@ -113,6 +113,12 @@
     return `<div class="page-heading"><div><div class="kicker">${esc(kicker)}</div><h1>${esc(title)}</h1><p>${esc(description)}</p></div>${actions ? `<div class="heading-actions">${actions}</div>` : ""}</div>`;
   }
 
+  function workersActive() {
+    const machines = Object.values(state.status?.machines || {});
+    const destinations = Object.values(state.status?.destinations || {});
+    return [...machines, ...destinations].some(worker => worker.worker_alive);
+  }
+
   function statusBadge(status = {}) {
     const stateName = status.state || (status.worker_alive ? "running" : "stopped");
     const labels = {running:"Running", starting:"Starting", stopped:"Stopped", fault:"Fault"};
@@ -268,9 +274,11 @@
 
   function renderRecords() {
     const records = state.records || [], scans = state.scans || [];
+    const active = workersActive();
+    const actions = `<button class="button button-danger" data-action="clear-spool" ${!state.status || active ? 'disabled title="Stop all machine and destination workers before clearing the spool"' : ""}>Clear spool</button><button class="button" data-action="refresh">↻ Refresh</button>`;
     const recordRows = records.map(record => `<tr><td><div class="device-name">${esc(record.machine_id)}</div><div class="device-meta">${esc(record.model)}</div></td><td>${esc(record.record_type)}<div class="device-meta mono">${esc(record.source)}</div></td><td>${esc(date(record.observed_at))}</td><td><span class="evidence-tag ${record.evidence_type === "simulated" ? "simulated" : ""}">${esc(record.evidence_type || "unknown")}</span></td><td><span class="quality ${record.values?.quality === "error" || record.values?.quality === "partial" ? "partial" : ""}">${esc(record.values?.quality || "—")}</span></td><td class="mono">${esc(record.record_id?.slice(0,8) || "—")}</td></tr>`).join("");
     const scanRows = scans.map(scan => {const items=scan.items||[];return `<tr><td><div class="device-name">${esc(scan.machine_id)}</div><div class="device-meta mono">${esc(scan.group_name || scan.scan_id?.slice(0,8))}</div></td><td>${scan.completed_at?`<span class="badge good">Complete</span>`:`<span class="badge warning">Partial</span>`}<div class="device-meta">${esc(date(scan.started_at))}</div></td><td><div class="scan-items">${items.map(item=>`<span class="scan-item ${item.outcome === "failed" ? "failed" : item.outcome === "unsupported" ? "unsupported" : item.outcome ? "" : "missing"}" title="${esc(item.outcome || "missing")}">${esc(item.item_key)} · ${esc(item.outcome || "missing")}</span>`).join("") || "—"}</div></td></tr>`}).join("");
-    return `${pageHeading("RECENT ACTIVITY", "Recent data", "Showing up to 10 recent records and 10 scans from the spool.", `<button class="button" data-action="refresh">↻ Refresh</button>`)}<div class="records-layout"><section class="panel"><div class="panel-head"><div><div class="panel-title">Observation records</div><div class="panel-subtitle">Stored in the spool · This is not a complete archive.</div></div><span class="badge">${number(records.length)} / 10</span></div><div class="table-scroll"><table class="data-table"><thead><tr><th>MACHINE</th><th>TYPE / SOURCE</th><th>OBSERVED AT</th><th>EVIDENCE</th><th>QUALITY</th><th>RECORD ID</th></tr></thead><tbody>${recordRows||`<tr><td colspan="6" class="empty-row">No records yet</td></tr>`}</tbody></table></div></section><section class="panel"><div class="panel-head"><div><div class="panel-title">Inventory scans</div><div class="panel-subtitle">Missing items are never presented as a complete scan.</div></div><span class="badge">${number(scans.length)} / 10</span></div><div class="table-scroll"><table class="data-table"><thead><tr><th>MACHINE / SCAN</th><th>STATE / STARTED</th><th>ITEM COVERAGE</th></tr></thead><tbody>${scanRows||`<tr><td colspan="3" class="empty-row">No scans yet</td></tr>`}</tbody></table></div></section></div>`;
+    return `${pageHeading("RECENT ACTIVITY", "Recent data", "Showing up to 10 recent records and 10 scans from the spool.", actions)}${active ? `<div class="machine-lock-notice"><span aria-hidden="true">i</span><span>Stop all machine and destination workers before clearing the spool.</span></div>` : ""}<div class="records-layout"><section class="panel"><div class="panel-head"><div><div class="panel-title">Observation records</div><div class="panel-subtitle">Stored in the spool · This is not a complete archive.</div></div><span class="badge">${number(records.length)} / 10</span></div><div class="table-scroll"><table class="data-table"><thead><tr><th>MACHINE</th><th>TYPE / SOURCE</th><th>OBSERVED AT</th><th>EVIDENCE</th><th>QUALITY</th><th>RECORD ID</th></tr></thead><tbody>${recordRows||`<tr><td colspan="6" class="empty-row">No records yet</td></tr>`}</tbody></table></div></section><section class="panel"><div class="panel-head"><div><div class="panel-title">Inventory scans</div><div class="panel-subtitle">Missing items are never presented as a complete scan.</div></div><span class="badge">${number(scans.length)} / 10</span></div><div class="table-scroll"><table class="data-table"><thead><tr><th>MACHINE / SCAN</th><th>STATE / STARTED</th><th>ITEM COVERAGE</th></tr></thead><tbody>${scanRows||`<tr><td colspan="3" class="empty-row">No scans yet</td></tr>`}</tbody></table></div></section></div>`;
   }
 
   function render() {
@@ -377,6 +385,27 @@
     $("#confirm-dialog").showModal();
   }
 
+  function clearSpool() {
+    if (workersActive()) { setNotice("Stop all machine and destination workers before clearing the spool.", "warning"); return; }
+    const spool = state.status?.spool || {};
+    $("#confirm-title").textContent = "Clear all spool data?";
+    $("#confirm-copy").textContent = `This permanently deletes ${number(spool.records || 0)} local records and ${number(spool.pending || 0)} pending deliveries, plus all scan and fault history. Destination settings remain saved. Data already delivered to external destinations is not deleted.`;
+    const form = $("#confirm-form"), confirm = form.querySelector('[value="confirm"]');
+    form.onsubmit = async event => {
+      event.preventDefault();
+      if (event.submitter?.value !== "confirm") { $("#confirm-dialog").close(); return; }
+      confirm.disabled = true;
+      try {
+        const result = await api("/api/spool", {method:"DELETE"});
+        $("#confirm-dialog").close();
+        await refresh({quiet:true});
+        setNotice(result.storage_reclaimed ? "Spool cleared." : "Spool data cleared, but SQLite could not reclaim the file space.", result.storage_reclaimed ? "" : "warning", 7000);
+      } catch(error) { $("#confirm-dialog").close(); setNotice(error.message,"error",7000); }
+      finally { confirm.disabled = false; }
+    };
+    $("#confirm-dialog").showModal();
+  }
+
   async function control(action) {
     const label = action === "start" ? "Start acquisition" : "Stop acquisition";
     if (action === "start" && !(state.config?.machines || []).length) { setNotice("Add a machine before starting acquisition.", "warning"); location.hash = "#machines"; return; }
@@ -403,6 +432,7 @@
     else if (action === "add-destination") openEdit("destination");
     else if (action === "edit-destination") openEdit("destination",state.config.destinations.find(item=>item.id===id));
     else if (action === "remove-destination") removeItem("destination",id);
+    else if (action === "clear-spool") clearSpool();
   });
 
   document.addEventListener("input", event => {
