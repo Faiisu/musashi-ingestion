@@ -23,6 +23,14 @@ class IIUnavailable(IIProtocolError):
     pass
 
 
+class IITimeout(IIProtocolError):
+    """The bounded serial read returned no byte before its timeout."""
+
+
+class IIDisconnected(IIProtocolError):
+    """The serial transport reported that its peer or device disappeared."""
+
+
 @dataclass(frozen=True)
 class IIResponse:
     code: str
@@ -40,6 +48,8 @@ def request_frame(code: str, channel: int = 1) -> bytes:
         raise ValueError("unsupported upload code")
     if type(channel) is not int or not 1 <= channel <= 100:
         raise ValueError("channel must be an integer from 1 to 100")
+    if code in MACHINE_UPLOADS and channel != 1:
+        raise ValueError("machine uploads use channel field 001")
     body = f"UL{channel:03d}{code}".encode("ascii")
     data = f"{len(body):02X}".encode("ascii") + body
     return STX + data + checksum(data) + ETX
@@ -92,9 +102,12 @@ class IIReader:
             raise IIProtocolError("serial request deadline exceeded")
         if hasattr(self._serial, "timeout"):
             self._serial.timeout = min(self.timeout, remaining)
-        value = self._serial.read(1)
+        try:
+            value = self._serial.read(1)
+        except OSError as exc:
+            raise IIDisconnected("serial device disconnected") from exc
         if len(value) != 1:
-            raise IIProtocolError("serial response timed out or disconnected")
+            raise IITimeout("serial response timed out")
         return value
 
     def _write(self, data: bytes) -> None:

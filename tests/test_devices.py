@@ -3,8 +3,11 @@
 import json
 import time
 import unittest
+from pathlib import Path
 
-from musashi_ingestion.devices.ii import ACK, ENQ, ETX, STX, IIProtocolError, IIReader, checksum
+from musashi_ingestion.devices.ii import (ACK, CAN, ENQ, EOT, ETX, STX, IIDisconnected,
+                                          IIProtocolError, IIReader, IIUnavailable, IITimeout, checksum,
+                                          request_frame)
 from musashi_ingestion.devices.iv import IVReadError, IVReader
 from musashi_ingestion.runtime.supervisor import Supervisor
 
@@ -12,6 +15,32 @@ from musashi_ingestion.runtime.supervisor import Supervisor
 def ii_frame(payload):
     data = f"{len(payload):02X}".encode() + payload.encode()
     return STX + data + checksum(data) + ETX
+
+
+class ScriptedSerial:
+    def __init__(self, incoming, disconnect=False):
+        self.incoming = bytearray(incoming)
+        self.writes = []
+        self.disconnect = disconnect
+
+    def reset_input_buffer(self):
+        pass
+
+    def read(self, size):
+        if self.disconnect and len(self.writes) >= 2 and not self.incoming:
+            raise OSError("peer disconnected")
+        if not self.incoming:
+            return b""
+        value = bytes(self.incoming[:size])
+        del self.incoming[:size]
+        return value
+
+    def write(self, data):
+        self.writes.append(data)
+        return len(data)
+
+    def close(self):
+        pass
 
 
 class FakeSerial:
@@ -68,6 +97,38 @@ class FakeHTTPConnection:
 
 
 class DeviceTests(unittest.TestCase):
+    def test_ii_fault_fixture_matrix_and_safe_write_traces(self):
+        fixtures = json.loads((Path(__file__).parent / "fixtures" / "ii_uploads.json").read_text())
+        cases = {case["name"]: case for case in fixtures["faults"]}
+        good = ii_frame("DA01P0987T00654V0321M2NSIGMA     ")
+        payload = b"DA01P0987T00654V0321M2NSIGMA     "
+        data = f"{len(payload) + 1:02X}".encode() + payload
+        bad_length = STX + data + checksum(data) + ETX
+        bad_checksum = good[:-3] + b"00" + ETX
+        unsupported = ii_frame("A2")
+        setup = {
+            "bad_length": (ACK + ACK + ENQ + bad_length, False, IIProtocolError),
+            "bad_checksum": (ACK + ACK + ENQ + bad_checksum, False, IIProtocolError),
+            "timeout": (b"", False, IITimeout),
+            "disconnect": (ACK, True, IIDisconnected),
+            "unsupported_channel": (ACK + ACK + ENQ + unsupported, False, IIUnavailable),
+        }
+        symbolic = {ENQ: "ENQ", ACK: "ACK", EOT: "EOT", CAN: "CAN"}
+        for name, (incoming, disconnect, error) in setup.items():
+            with self.subTest(name):
+                serial = ScriptedSerial(incoming, disconnect=disconnect)
+                reader = IIReader("/dev/serial/by-id/fake", timeout=0.05,
+                                  serial_factory=lambda port, timeout: serial)
+                with self.assertRaises(error):
+                    reader.upload("D01")
+                trace = ["UL001D01" if item.startswith(STX) else symbolic[item]
+                         for item in serial.writes]
+                self.assertEqual(trace, cases[name]["write_trace"])
+                self.assertTrue(all(item in (ENQ, ACK, EOT, CAN) or item.startswith(STX) and b"UL" in item
+                                    for item in serial.writes))
+        with self.assertRaises(ValueError):
+            request_frame("D05", 2)
+
     def test_first_ii_read_and_bad_checksum_are_bounded(self):
         fake = FakeSerial("/dev/serial/by-id/fake", 2)
         reader = IIReader("/dev/serial/by-id/fake", serial_factory=lambda port, timeout: fake)

@@ -11,5 +11,13 @@
     {"code": "D07", "page": 91, "payload": "DA07CT12345678", "expected": {"dispense_count": 12345678}},
     {"code": "D08", "page": 92, "payload": "DA08VR0100SP5", "expected": {"software_version_raw": "0100", "model_specification": "V5"}},
     {"code": "D09", "page": 92, "payload": "DA09SY0110010", "expected": {"sampled_syringe_sizes_cc": [5, 10, 50]}}
+  ],
+  "faults": [
+    {"name": "bad_length", "input": "valid-checksum frame with declared byte count one larger than actual", "expected": "frame_error", "write_trace": ["ENQ", "UL001D01", "EOT", "ACK", "CAN", "EOT"]},
+    {"name": "bad_checksum", "input": "DA01 response frame with incorrect checksum", "expected": "frame_error", "write_trace": ["ENQ", "UL001D01", "EOT", "ACK", "CAN", "EOT"]},
+    {"name": "timeout", "input": "no response to ENQ before 2-second request deadline", "expected": "bounded_timeout", "write_trace": ["ENQ", "CAN", "EOT"]},
+    {"name": "disconnect", "input": "peer disconnects after request and before acknowledgement", "expected": "bounded_disconnect", "write_trace": ["ENQ", "UL001D01", "CAN", "EOT"]},
+    {"name": "unsupported_channel", "input": "valid A2 rejection response for UL001D01", "expected": "unavailable", "write_trace": ["ENQ", "UL001D01", "EOT", "ACK", "CAN", "EOT"]},
+    {"name": "blank_numeric", "code": "D01", "payload": "DA01P    T00654V0321M2NSIGMA     ", "expected": {"pressure_kpa": null, "dispense_time_ms": 654, "vacuum_kpa_magnitude": 3.21, "mode_code": 2, "product_name": "SIGMA"}, "write_trace": []}
   ]
 }

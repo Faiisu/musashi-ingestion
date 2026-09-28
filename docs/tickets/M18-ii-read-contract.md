@@ -42,3 +42,33 @@ Completion: unverified
 - 2026-09-28: II UL-only adapter and synthetic first-read/bad-checksum checks exist in `src/musashi_ingestion/devices/ii.py` and `tests/test_devices.py`. D02–D09 field fixtures, units, and unknown-firmware list remain open. Synthetic checks do not establish hardware acceptance.
 - 2026-09-28: Added manual-derived `DA01`–`DA09` fixture values with page numbers in `tests/fixtures/ii_uploads.json`, strict decoding in `src/musashi_ingestion/devices/ii_decode.py`, and 2 decoder checks. The full malformed/timeout/disconnect fixture matrix and firmware questions remain open; no new hardware response was captured.
 - 2026-09-28: Synthetic timeout/disconnect checks now assert bounded abort and the UL-only trace. The site questions are in the II read contract; a retained-reader parser comparison and peer review still remain before verification.
+- 2026-09-28: Added a field-by-field comparison of the shared D01 values with the retained reader semantics, six named fault fixtures with exact writes, decoder/runtime checks for timeout versus OS-reported disconnect, and rejection of non-001 channel fields for machine uploads. Evidence table follows. This remains unverified pending peer review and M33 hardware/site confirmation.
+
+### M18 implementation evidence (synthetic only)
+
+The nine normal fixture keys are `uploads[0]` through `uploads[8]` in order D01–D09. Expected and actual parsed objects matched in `test_all_upload_layouts`:
+
+| Key / manual page | Expected = actual parsed object |
+| --- | --- |
+| `uploads[0]` / 89 | `{"pressure_kpa":98.7,"dispense_time_ms":654,"vacuum_kpa_magnitude":3.21,"mode_code":2,"product_name":"SIGMA"}` |
+| `uploads[1]` / 89 | `{"syringe_size_code":2,"syringe_size_cc":10,"adapter_tube_code":2,"adapter_tube_m":1.0}` |
+| `uploads[2]` / 90 | `{"alpha_correction":123,"delta_correction_percent":85,"vacuum_correction_kpa":-0.31}` |
+| `uploads[3]` / 90 | `{"remaining_detection_percent":50,"remaining_detection_count":6}` |
+| `uploads[4]` / 91 | `{"remaining_volume_percent":50}` |
+| `uploads[5]` / 91 | `{"displayed_channel":20}` |
+| `uploads[6]` / 91 | `{"dispense_count":12345678}` |
+| `uploads[7]` / 92 | `{"software_version_raw":"0100","model_specification":"V5"}` |
+| `uploads[8]` / 92 | `{"sampled_syringe_sizes_cc":[5,10,50]}` |
+
+The six fault fixture keys are executed by `test_ii_fault_fixture_matrix_and_safe_write_traces` and `test_blank_numeric_fixture_is_unavailable`; expected and actual outcomes and traces matched:
+
+| Fixture key | Expected | Actual |
+| --- | --- | --- |
+| `faults[0]` / `bad_length` | `IIProtocolError`; `ENQ, UL001D01, EOT, ACK, CAN, EOT` | Same class and writes |
+| `faults[1]` / `bad_checksum` | `IIProtocolError`; `ENQ, UL001D01, EOT, ACK, CAN, EOT` | Same class and writes |
+| `faults[2]` / `timeout` | `IITimeout`; `ENQ, CAN, EOT` | Same class and writes |
+| `faults[3]` / `disconnect` | `IIDisconnected`; `ENQ, UL001D01, CAN, EOT` | Same class and writes |
+| `faults[4]` / `unsupported_channel` | `IIUnavailable`; `ENQ, UL001D01, EOT, ACK, CAN, EOT` | Same class and writes |
+| `faults[5]` / `blank_numeric` | Pressure `null`; other D01 values unchanged | Exact expected object |
+
+The accepted write vocabulary is `ENQ`, `ACK`, `EOT`, `CAN`, and a framed `UL001D01`; no other application command is emitted. These are fake-serial and synthetic-payload results, not hardware observations.
