@@ -69,6 +69,50 @@ class FakeSerial:
         pass
 
 
+class IIRequiresFinalEOTSerial:
+    """Model a controller that will not accept the next upload until EOT."""
+
+    def __init__(self):
+        self.incoming = bytearray()
+        self.writes = []
+        self.ready = True
+        self.awaiting_final_eot = False
+        self.ack_writes = 0
+
+    def reset_input_buffer(self):
+        pass
+
+    def read(self, size):
+        if not self.incoming:
+            return b""
+        value = bytes(self.incoming[:size])
+        del self.incoming[:size]
+        return value
+
+    def write(self, data):
+        self.writes.append(data)
+        if data == ENQ:
+            if self.ready:
+                self.incoming.extend(ACK)
+                self.ready = False
+                self.ack_writes = 0
+        elif data.startswith(STX):
+            code = next(code for code in ("D01", "D02", "D03", "D04", "D05", "D06", "D07", "D08", "D09")
+                        if code.encode() in data)
+            self.incoming.extend(ACK + ENQ + ii_frame(f"DA{code[1:]}"))
+        elif data == ACK:
+            self.ack_writes += 1
+            if self.ack_writes == 2:
+                self.awaiting_final_eot = True
+        elif data == EOT and self.awaiting_final_eot:
+            self.awaiting_final_eot = False
+            self.ready = True
+        return len(data)
+
+    def close(self):
+        pass
+
+
 class FakeHTTPResponse:
     def __init__(self, status=200, value=None):
         self.status = status
@@ -97,6 +141,17 @@ class FakeHTTPConnection:
 
 
 class DeviceTests(unittest.TestCase):
+    def test_ii_ends_each_upload_before_starting_the_next(self):
+        serial = IIRequiresFinalEOTSerial()
+        reader = IIReader("/dev/serial/by-id/fake", timeout=0.05,
+                          serial_factory=lambda port, timeout: serial)
+        first = reader.upload("D05")
+        second = reader.upload("D06")
+        reader.close()
+        self.assertEqual(first.payload, "DA05")
+        self.assertEqual(second.payload, "DA06")
+        self.assertEqual(serial.writes.count(EOT), 4)
+
     def test_ii_fault_fixture_matrix_and_safe_write_traces(self):
         fixtures = json.loads((Path(__file__).parent / "fixtures" / "ii_uploads.json").read_text())
         cases = {case["name"]: case for case in fixtures["faults"]}
@@ -206,7 +261,7 @@ class DeviceTests(unittest.TestCase):
         machine = {"recipe_count": 2, "channel_count": 2}
         Supervisor._validate_iv_inventory(machine, ("recipe_range", None, None), {"min": 0, "max": 1})
         with self.assertRaises(ValueError):
-            Supervisor._validate_iv_inventory(machine, ("recipe_range", None, None), {"min": 0, "max": 99})
+            Supervisor._validate_iv_inventory(machine, ("recipe_range", None, None), {"min": 0, "max": 0})
         with self.assertRaises(ValueError):
             Supervisor._validate_iv_inventory(machine, ("channel_item", 1, None), {"ch": [{"no": 1}]})
 

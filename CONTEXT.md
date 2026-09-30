@@ -7,8 +7,11 @@ This service reads Musashi machines and retains observations for independent del
 **Observation**:
 A time-stamped result of one permitted device read, with its source, scope, quality, and evidence level. A failed read is a fault, not a substitute observation.
 
+**Model label**:
+The physical dispenser family shown to operators and attached to observations. The connected serial dispenser is identified as III; the network dispenser is IV. A protocol manual's model name remains evidence about that protocol and does not rename the connected machine.
+
 **Inventory scan**:
-One bounded pass over an expected set of slower-changing machine reads, including II channel settings or IV settings, recipes, channels, exports, logs, and diagnostic results. It is separate from frequent live-status polling.
+One bounded pass over an expected set of slower-changing machine reads, including III channel settings or IV settings, recipes, channels, exports, logs, and diagnostic results. It is separate from frequent live-status polling.
 _Avoid_: Inventory as stock on hand
 
 **Scan item**:

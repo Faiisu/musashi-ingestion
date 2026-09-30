@@ -16,7 +16,7 @@ class SpoolError(RuntimeError):
 
 def make_record(machine_id: str, model: str, record_type: str, source: str, values: dict,
                 *, channel_id=None, observed_at=None, evidence_type="simulated", record_id=None) -> dict:
-    if not machine_id or not source or model not in ("II", "IV"):
+    if not machine_id or not source or model not in ("III", "IV"):
         raise ValueError("machine_id, supported model and source required")
     observed_at = observed_at or datetime.now(timezone.utc).isoformat()
     timestamp = datetime.fromisoformat(observed_at.replace("Z", "+00:00"))
@@ -66,6 +66,10 @@ class Spool:
           PRIMARY KEY(scan_id,item_key));
         CREATE TABLE IF NOT EXISTS faults(id INTEGER PRIMARY KEY AUTOINCREMENT,
           occurred_at TEXT NOT NULL, detail TEXT NOT NULL, cleared_at TEXT);
+        CREATE TABLE IF NOT EXISTS destination_lanes(lane_id TEXT PRIMARY KEY, target_id TEXT NOT NULL);
+        CREATE TABLE IF NOT EXISTS reroute_audit(id INTEGER PRIMARY KEY AUTOINCREMENT,
+          lane_id TEXT NOT NULL, old_target_id TEXT, new_target_id TEXT NOT NULL,
+          moved_pending INTEGER NOT NULL, occurred_at TEXT NOT NULL);
         CREATE TABLE IF NOT EXISTS spool_meta(key TEXT PRIMARY KEY, value TEXT NOT NULL);
         PRAGMA user_version=2;
         """)
@@ -79,13 +83,47 @@ class Spool:
     def close(self):
         self.db.close()
 
-    def register_target(self, kind: str, settings: dict) -> str:
+    def register_target(self, kind: str, settings: dict, *, lane_id=None, legacy_settings=None) -> str:
         if kind not in ("mqtt", "postgres", "influxdb"):
             raise ValueError("unsupported target kind")
-        canonical = json.dumps({"kind": kind, "settings": settings}, sort_keys=True, separators=(",", ":"), allow_nan=False)
+        canonical = json.dumps({"kind": kind, "settings": settings}, sort_keys=True,
+                               separators=(",", ":"), allow_nan=False)
         digest = hashlib.sha256(canonical.encode()).hexdigest()
         target_id = f"{kind}:{digest}"
-        self.db.execute("INSERT OR IGNORE INTO targets VALUES(?,?,?,?)", (target_id, kind, digest, self._now()))
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            self.db.execute("INSERT OR IGNORE INTO targets VALUES(?,?,?,?)",
+                            (target_id, kind, digest, self._now()))
+            if lane_id is not None:
+                row = self.db.execute("SELECT target_id FROM destination_lanes WHERE lane_id=?",
+                                      (lane_id,)).fetchone()
+                old_id = row[0] if row else None
+                if old_id is None and legacy_settings is not None:
+                    legacy = json.dumps({"kind": kind, "settings": legacy_settings}, sort_keys=True,
+                                        separators=(",", ":"), allow_nan=False)
+                    candidate = f"{kind}:{hashlib.sha256(legacy.encode()).hexdigest()}"
+                    if self.db.execute("SELECT 1 FROM targets WHERE target_id=?", (candidate,)).fetchone():
+                        old_id = candidate
+                moved = 0
+                if old_id is not None and old_id != target_id:
+                    moved = self.db.execute("""SELECT count(*) FROM deliveries
+                      WHERE target_id=? AND acknowledged_at IS NULL""", (old_id,)).fetchone()[0]
+                    self.db.execute("""INSERT OR IGNORE INTO deliveries(record_id,target_id)
+                      SELECT record_id, ? FROM deliveries
+                      WHERE target_id=? AND acknowledged_at IS NULL""", (target_id, old_id))
+                    self.db.execute("DELETE FROM deliveries WHERE target_id=? AND acknowledged_at IS NULL",
+                                    (old_id,))
+                elif old_id is None:
+                    self.db.execute("""INSERT OR IGNORE INTO deliveries(record_id,target_id)
+                      SELECT record_id, ? FROM records""", (target_id,))
+                if old_id != target_id:
+                    self.db.execute("INSERT INTO reroute_audit(lane_id,old_target_id,new_target_id,moved_pending,occurred_at) VALUES(?,?,?,?,?)",
+                                    (lane_id, old_id, target_id, moved, self._now()))
+                self.db.execute("INSERT OR REPLACE INTO destination_lanes VALUES(?,?)", (lane_id, target_id))
+            self.db.execute("COMMIT")
+        except Exception:
+            self.db.execute("ROLLBACK")
+            raise
         return target_id
 
     def _disk_bytes(self):
@@ -143,7 +181,7 @@ class Spool:
               (SELECT count(*) FROM faults) faults,
               (SELECT count(*) FROM targets) destination_identities""").fetchone())
             for table in ("scan_outcomes", "scan_expected", "scan_items", "scans",
-                          "deliveries", "records", "faults", "targets"):
+                          "deliveries", "records", "faults", "destination_lanes", "reroute_audit", "targets"):
                 self.db.execute(f"DELETE FROM {table}")
             self.db.execute("COMMIT")
         except sqlite3.Error as exc:

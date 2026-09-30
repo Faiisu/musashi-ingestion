@@ -41,7 +41,7 @@ class DeliveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             spool = Spool(Path(directory) / "spool.sqlite3")
             target = spool.register_target("mqtt", {"host": "synthetic"})
-            record = make_record("ii", "II", "status", "D01", {"text": "ทดสอบ" * 100})
+            record = make_record("ii", "III", "status", "D01", {"text": "ทดสอบ" * 100})
             spool.commit(record, [target])
             lost = MQTTClient(False)
             with self.assertRaises(TimeoutError):
@@ -62,7 +62,7 @@ class DeliveryTests(unittest.TestCase):
             digest = hashlib.sha256(secret.read_bytes()).hexdigest()
             spool = Spool(root / "spool.sqlite3")
             target = spool.register_target("mqtt", {"host": "synthetic"})
-            spool.commit(make_record("ii", "II", "status", "D01", {"value": 1}), [target])
+            spool.commit(make_record("ii", "III", "status", "D01", {"value": 1}), [target])
             supervisor = Supervisor(ConfigStore(root / "config.json"), spool)
             supervisor._delivery_states[target] = {"state": "starting", "error": None, "last_success": None}
 

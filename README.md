@@ -1,12 +1,12 @@
 # Musashi ingestion service and operator console
 
-This repository is rebuilding a read-only ingestion service for Musashi Super ΣCM II and IV dispensers. It has an authenticated management API, a responsive operator console, a SQLite record spool, safe request adapters, independent machine workers, and MQTT/PostgreSQL/InfluxDB delivery adapters. Device reads have only been exercised with synthetic responses; limited MQTT and PostgreSQL service checks passed, while hardware compatibility and a full three-destination round trip remain open ticket gates.
+This repository is rebuilding a read-only ingestion service for Musashi Super ΣCM III and IV dispensers. It has an authenticated management API, a responsive operator console, a SQLite record spool, safe request adapters, independent machine workers, and MQTT/PostgreSQL/InfluxDB delivery adapters. The connected III has completed a limited real serial read cycle, and IV status reads have succeeded; full hardware acceptance, complete IV inventory, and the structured Influx schema round trip remain open ticket gates.
 
 ## Prerequisites
 
 - Python 3.11 or newer and `uv`, `curl`, and `jq`, or Docker with Compose.
 - Operator credentials from `OPERATOR_USERNAME` and `OPERATOR_PASSWORD`; local defaults are `admin` and `00000000`.
-- For real II/IV reads, an operator-approved machine, serial device or restricted IV network, and evidenced channel/recipe counts.
+- For real III/IV reads, an operator-approved machine, serial device or restricted IV network, and evidenced channel/recipe counts.
 
 ## Local quickstart: one simulated read
 
@@ -57,3 +57,5 @@ With `OPERATOR_USERNAME` / `OPERATOR_PASSWORD` set in `.env` as appropriate for 
 The implementation defaults to a 2 MiB record limit and a 1 GiB SQLite spool quota; an oversized read or full spool faults acquisition instead of truncating data. MQTT messages default to at most 256 KiB including the envelope. These are provisional software guardrails, pending measured site capacity. Scan coverage and target delivery remain durable through SQLite. A destination failure keeps its assigned records pending; changed target settings receive a distinct identity. See the [working contract](docs/specs/rebuild-contract.md), [architecture](docs/architecture.md), and [ticket plan](docs/development-plan.md) for scope and open acceptance gates.
 
 Run the checked-in synthetic regressions with `uv run python -m unittest discover -s tests -v`. Before the environment restricted sockets, the API restart test passed. The current socket-free subset passes 23 checks with `PYTHONPATH=src:tests .venv/bin/python -m unittest test_core test_devices test_ii_decode test_runtime test_iv_contract test_delivery test_recovery -v`; this includes a killed SQLite writer process, a live SQLite backup/restore, simulated destination outage and lost acknowledgment, and a simulated SQLite full error. The full discovery run currently fails only when its API test tries to create a socket (`PermissionError` in this environment). `docker compose build ingestion` passed before the latest source edits. The full M32 matrix and hardware checks have not run.
+
+Influx scan snapshots use the bounded source tag `inventory`; their individual scan ID remains in the fields and complete JSON body. Older stored series keep their previous tags.

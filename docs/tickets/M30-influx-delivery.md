@@ -16,19 +16,19 @@ Completion: unverified
 
 ## Fixed work order and evidence
 
-1. Use the exact [ADR 0001](../adr/0001-influx-point-identity.md) line: measurement `musashi_record`, sole tag `installation_id`, one string field `body` containing the complete canonical JSON record, and spool `point_time_ns` as timestamp. Use synchronous writes and acknowledge the lane only after server acceptance. Query the field back, JSON-decode, and compare the entire body including nested values, raw TSV, source, quality, original `observed_at`, and scan outcomes.
+1. Use the [ADR 0001](../adr/0001-influx-point-identity.md) schema: measurements `musashi_iii` and `musashi_iv`; bounded machine/source/scope tags; source-prefixed scalar fields for parsed values; and a string `body` field containing the complete record for lossless recovery. Encode numeric leaves consistently as floats to prevent conflicts between integer/float variants. Use spool `point_time_ns` as timestamp, synchronous writes, and acknowledge only after server acceptance. Query the fields and body back; compare the complete body including nested values, raw TSV, source, quality, original `observed_at`, and scan outcomes.
 2. Set `max_payload_bytes` default and minimum to 16,777,216. Measure the UTF-8 bytes of the escaped final line before sending; one accepted 2,097,152-byte record must fit or the write remains pending with an explicit oversize fault. Never split a record into points or omit a field. Do not add `record_id` as a tag. Retry uses the identical line and point time; distinct IDs with equal observation time have distinct stored point times.
 3. Evidence in a disposable bucket includes every shared family, a worst-case escaping record, same-time distinct IDs, exact replay, unavailable/partial scan, network outage and restart, retained-history backfill, and pending-only reroute to a new bucket. Record the line byte length, tag set, queried full JSON equality, point count, and spool pending/ack states. A legacy pending record without point identity stays pending with `MissingPointIdentity`; migration is required only if an actual retained old spool is supplied as input.
 
 ## Scope and constraints
 
-- Use the complete JSON body string defined above for nested JSON, TSV logs, scan completion, units, and model-specific values. If Influx cannot retain a family within limits, reject that destination combination before Start; never acknowledge silently omitted fields (B06).
+- Use the complete JSON body string as the lossless source for nested JSON, TSV logs, scan completion, units, and model-specific values. Structured scalar fields supplement it for direct querying. If Influx cannot retain a family within limits, reject that destination combination before Start; never acknowledge silently omitted fields (B06).
 - Prove point identity for distinct records with the same machine, type, and timestamp, while replaying one record produces the intended idempotent result. Keep tag cardinality bounded.
 - Enforce request and payload limits, timeout, TLS, and token redaction; acknowledge only on confirmed acceptance.
 
 ## Acceptance checks
 
-- [ ] Round-trip queries recover each supported fixture family, including nested status, export/log, scan state, source, and units.
+- [ ] Round-trip queries recover separate III/IV measurements, bounded tags, typed scalar values, and each supported fixture family from the complete body, including nested status, export/log, scan state, source, and units.
 - [ ] Two distinct record IDs at the same observation timestamp remain distinguishable; replay behaves as specified.
 - [ ] Unsupported or oversized payloads fail configuration or remain pending with explicit fault, never silently drop content.
 - [ ] The final encoded line stays within the configured 16 MiB minimum for the worst accepted record or an oversize write stays pending with a visible fault.
@@ -43,3 +43,4 @@ Completion: unverified
 - 2026-09-28: Influx line encoding retains complete JSON and record ID identity. Disposable bucket round trip, replay, and outage checks remain open. Synthetic checks do not establish hardware acceptance.
 - 2026-09-28: [ADR 0001](../adr/0001-influx-point-identity.md) replaces per-record ID tags with a durable installation tag and monotonic point time assigned by SQLite. Synthetic same-observation-time records have distinct point times and no per-record tag. Disposable bucket query/replay and outage evidence remain open under the current socket/Docker restriction.
 - 2026-09-28: Audit found that a pre-identity pending Influx row would block newer rows for that target. Status now exposes the affected record ID and reason. The current rebuild has no migration or operator recovery path for such a row; resolve this before claiming upgrade/recovery acceptance. No deployed legacy spool has been identified in this checkout.
+- 2026-09-30: Structured III/IV measurements and source-prefixed scalar fields are implemented. A live bucket query returned `musashi_iii` field `value_d01_pressure_kpa` and `musashi_iv` field `value_v1_status_supply_value`; the complete disposable family/replay/outage round trip remains unverified.

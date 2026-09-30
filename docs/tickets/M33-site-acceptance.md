@@ -1,7 +1,7 @@
 # M33 — Confirm read-only coverage on real II and IV machines
 
 Status: needs-triage
-Completion: not-started
+Completion: unverified
 
 **Depends on:** [M32](M32-hardware-free-qualification.md).
 
@@ -35,3 +35,9 @@ Completion: not-started
 - [ ] Operations guide contains site-specific safe configuration and recovery results without secrets.
 
 **Verification:** Review real-device captures, controller-side evidence, service traces, destination queries, and signed site acceptance. This is the sole hardware-verified gate.
+
+## Comments
+
+- 2026-09-30: Partial live smoke run on revision `9d06cf8`. `uv run python -m unittest discover -s tests -v` passed 42 tests. A direct read-only IV probe at `192.168.1.11:1024` returned HTTP 200 for all 16 M24 status paths (07:47:56–07:48:13 UTC); per-request elapsed times were approximately 0.05–1.09 s. The probe used a 2,097,152-byte cap and recorded response lengths and JSON shapes only; it did not save sanitized response captures or compare values with the controller display. II access was blocked before the first request: `/dev/ttyUSB0` is `root:dialout` mode `0660`, and the test process is not in `dialout`. No inventory, diagnostic, destination, outage, or recovery tests ran. M32 remains unverified, so the M33 prerequisite was not met. Site ID, model/serial/firmware, evidenced recipe/channel counts, approved window, destination endpoints, outage permission, site limits, and operator signature are still missing. M33 remains unverified and cannot establish site acceptance from this smoke run.
+- 2026-09-30: After adding the II serial device to the local Compose override and correcting the II session terminator, the application started through its authenticated control API. II status reads now succeed in the container; IV status reports success, and the Influx lane is running with acknowledged writes. The active IV inventory remains partial; scan outcomes mark `/v1/info/recipe/range` and `/v1/time` failed. Full family captures, controller comparison, destination reconciliation for all records, site limits, recovery run, and operator sign-off remain open; this does not verify M33.
+- 2026-09-30: Operator corrected the serial machine label from II to III. Runtime config now uses model `III` and machine ID `Musashi-iii-0`. Queries against the configured bucket returned III `D01` pressure fields and an IV supply field; the destination worker is acknowledging writes. The current IV inventory remains partial, with `/v1/info/channel/range` failing validation against the configured count; earlier outcomes also failed `/v1/info/recipe/range` and `/v1/time`. During deployment, the spool count changed from 3,136 to 0 in observed status snapshots; the cause is unresolved. The spool has since accumulated new records. Full family captures, controller comparison, destination reconciliation, measured limits, and sign-off remain open.

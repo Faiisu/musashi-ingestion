@@ -2,7 +2,7 @@
 
 The application must collect every documented read-only data value that its configured machine can return, except the IV screen image. It must never change settings, switch channels, start dispensing, clear data, or run a diagnostic action. An HTTP `GET` is not automatically safe: the IV manual uses GET for many control commands.
 
-No machine is connected now. The [II reader](../../examples/musashi_II_example/read_musashi.py) previously retrieved real values using `UL ... D01`; other II upload codes are documented in the scanned manual but have not been exercised by that script. IV has no working example, so its behavior is manual-derived until site acceptance. Synthetic fixtures must say so.
+The connected serial dispenser is identified by the operator as III; its live reads use the `UL` upload protocol documented in the scanned Model II manual. The [II reader](../../examples/musashi_II_example/read_musashi.py) previously retrieved real values using `UL ... D01`; other upload codes are documented in the scanned manual and have since been exercised in a limited live cycle. IV status reads have succeeded; inventory and site acceptance remain incomplete. Synthetic fixtures must say so.
 
 ## Model II: RS-232C uploads
 
@@ -33,7 +33,7 @@ The [IV manual](../../examples/Instruction%20Manual%20Super%20%CE%A3CM%E2%85%A3%
 | Data group | Allowed read endpoints | Response |
 | --- | --- | --- |
 | Live status | `/v1/status/main`, `/channel`, `/recipe`, `/error`, `/alarm`, `/totalCounter`, `/userCounter`, `/supply`, `/autoInc`, `/interval`, `/stopWatch`, `/tempUnit`, `/sigma`, `/remain`, `/dsubio/in`, `/dsubio/out` | JSON status, values, arrays, or `null` |
-| Machine and clock | `/v1/info/machine/data`, `/v1/time` | JSON metadata and time |
+| Machine and clock | `/v1/info/machine/data`, `/v1/time` | JSON metadata; ISO 8601 time text on the connected firmware |
 | Common settings | `/v1/info/common/{option}/data` and `/range`; `option` is `interval`, `correction`, `rs232c`, `ethernet`, `dsubio`, or `configure` | JSON values and ranges |
 | Recipe settings | `/v1/info/recipe/data/all`, `/v1/info/recipe/range`; `/v1/info/recipe/data/{id}` as a fallback | JSON; `id` is 1–100 |
 | Channel settings | `/v1/info/channel/data/all`, `/v1/info/channel/range`; `/v1/info/channel/data/{id}` as a fallback | JSON; `id` is 1–400 |
@@ -64,7 +64,7 @@ In the live-status row, each abbreviated suffix after `/v1/status/main` has the 
 
 The channel payload includes `disTime` (seconds), `disPress` (kPa), `disVacuum` (−kPa as printed in the manual), `shotMode`, `chName`, and `no`. URL `id` is 1–400, while payload `no` is 0–399. Keep those numbering schemes separate. The `data/all` endpoints cover the same items as the individual endpoints. The current implementation conservatively requests each configured ID as well; reducing those requests requires a verified reconciliation rule.
 
-The IV manual's Communication Ethernet page 36 describes range replies as JSON with integer `min` and `max`. Recipe/channel payloads use arrays under `recipe`/`ch`; their `no` values start at zero. The current adapter checks configured counts against the range and checks per-ID payload numbering. This is software validation of manual-derived shapes, not firmware verification.
+The IV manual's Communication Ethernet page 36 describes range replies as JSON with integer `min` and `max`. Recipe/channel payloads use arrays under `recipe`/`ch`; their `no` values start at zero. The adapter accepts nested ranges under `recipe.no` and `ch.no`, as observed on the connected IV on 2026-09-30, and the flat synthetic range shape. Configured counts bound the individual sweep and must fit within the returned capacity. All-data responses can contain IDs beyond a configured subset, within the protocol limits. Per-ID payload numbering is still validated. A read-only check on that date returned recipe IDs 0–99 and channel IDs 0–399; this establishes the reported range, not successful reads of every item. The clock endpoint returned ISO 8601 text with an offset; the adapter validates and preserves that text.
 
 The [synthetic IV response manifest](../../tests/fixtures/iv_responses.json) includes a partial `data/all` result, per-ID responses, ranges, and a null status. Its fault cases are exercised by `tests/test_iv_contract.py`. The manifest is test data, not a controller capture.
 
@@ -73,7 +73,7 @@ Use an exact path allowlist with fixed parameters. Exclude `/v1/screen` because 
 ## Collection rules
 
 - Poll changing status at the operator's per-machine interval, with a 1-second minimum. A cycle may take longer than its interval; report lag and skip overlapping cycles.
-- Collect full channel/recipe/common inventories and large exports in bounded background sweeps. Record scan start, completion, partial failures, and last successful scan. Do not claim that all channels refresh every second.
+- Collect full channel/recipe/common inventories and large exports in bounded background sweeps. Between due status polls, advance inventory one request at a time; do not wait a full polling interval between inventory items. Record scan start, completion, partial failures, and last successful scan. Do not claim that all channels refresh every second.
 - Keep distinct record types for status, channel/recipe settings, machine metadata, logs, and full data exports. Preserve the original response when safe, plus parsed fields, source path/upload code, machine ID, channel or recipe ID, timestamp, schema version, and quality. Redact any credential or sensitive setting before logging or publishing.
 - On each destination, either deliver a record type with a documented encoding or mark that destination combination unsupported during configuration. Never silently drop a type. Large payload and retention policies belong to M20 and M26–M30.
 

@@ -179,7 +179,8 @@ class IIReader:
                 if not payload.startswith("DA" + code[1:]):
                     raise IIProtocolError("unexpected upload response code")
                 self._write(ACK)
-                # EOT may be absent on the observed device; do not block for it.
+                # End this upload session before the next request is sent.
+                self._write(EOT)
                 return IIResponse(code, channel if code in CHANNEL_UPLOADS else None, payload, raw)
             except Exception:
                 if self._serial is not None:

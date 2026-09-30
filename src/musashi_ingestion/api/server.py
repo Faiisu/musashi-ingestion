@@ -329,7 +329,7 @@ def serve(bind, port, username, password, config_store, spool, supervisor, publi
                     machine_id = body.get("machine_id", "mock-ii")
                     if not isinstance(machine_id, str) or not machine_id or len(machine_id) > 64:
                         raise ValueError("invalid machine_id")
-                    record = make_record(machine_id, "II", "status", "D01",
+                    record = make_record(machine_id, "III", "status", "D01",
                                          {"synthetic": True, "pressure_kpa": 100},
                                          channel_id=1, evidence_type="simulated")
                     with operation_lock:

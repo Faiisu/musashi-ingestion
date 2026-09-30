@@ -29,6 +29,7 @@ class Supervisor:
         self.iv_factory = iv_factory
         self._lock = threading.RLock()
         self._stop = threading.Event()
+        self._delivery_stop = threading.Event()
         self._threads = {}
         self._states = {}
         self._target_ids = ()
@@ -44,18 +45,25 @@ class Supervisor:
             validate_config(config)
             target_pairs = []
             for destination in config["destinations"]:
-                identity = dict(destination)
+                identity = {key: destination[key] for key in
+                            ("id", "url", "org", "bucket", "host", "broker_host", "port", "topic", "tls", "ca_file", "secret_ref")
+                            if key in destination}
                 if destination.get("secret_ref"):
                     try:
                         identity["secret_digest"] = hashlib.sha256(Path(destination["secret_ref"]).read_bytes()).hexdigest()
                     except OSError:
                         identity["secret_digest"] = "unreadable"
-                target_pairs.append((self.spool.register_target(destination["kind"], identity),
+                legacy_identity = dict(destination)
+                if "secret_digest" in identity:
+                    legacy_identity["secret_digest"] = identity["secret_digest"]
+                target_pairs.append((self.spool.register_target(destination["kind"], identity,
+                                                                 lane_id=destination["id"], legacy_settings=legacy_identity),
                                      destination, identity.get("secret_digest")))
             self._target_ids = tuple(target_id for target_id, _, _ in target_pairs)
             self._destination_status_ids = {target_id: destination["id"]
                                             for target_id, destination, _ in target_pairs}
             self._stop = threading.Event()
+            self._delivery_stop = threading.Event()
             self._threads = {}
             self._states = {}
             self._delivery_threads = {}
@@ -63,7 +71,7 @@ class Supervisor:
             for target_id, destination, secret_digest in target_pairs:
                 self._delivery_states[target_id] = {"state": "starting", "error": None, "last_success": None}
                 thread = threading.Thread(target=self._run_delivery,
-                                          args=(target_id, destination, secret_digest, self._stop),
+                                          args=(target_id, destination, secret_digest, self._delivery_stop),
                                           name=f"delivery-{destination['id']}", daemon=True)
                 self._delivery_threads[target_id] = thread
                 thread.start()
@@ -80,10 +88,20 @@ class Supervisor:
     def stop(self, timeout=10):
         with self._lock:
             self._stop.set()
-            threads = list(self._threads.values()) + list(self._delivery_threads.values())
+            machines = list(self._threads.values())
+            deliveries = list(self._delivery_threads.values())
         deadline = time.monotonic() + timeout
-        for thread in threads:
+        for thread in machines:
             thread.join(max(0, deadline - time.monotonic()))
+        if not any(thread.is_alive() for thread in machines):
+            # Producers have committed their final scan snapshots. Give delivery
+            # workers the remaining shutdown budget before stopping them.
+            while (self.spool.stats()["pending"] and time.monotonic() < deadline
+                   and any(thread.is_alive() for thread in deliveries)):
+                time.sleep(0.05)
+            self._delivery_stop.set()
+            for thread in deliveries:
+                thread.join(max(0, deadline - time.monotonic()))
         return self.status()
 
     def status(self):
@@ -159,7 +177,7 @@ class Supervisor:
         ident = machine["id"]
         reader = None
         try:
-            if machine["model"] == "II":
+            if machine["model"] == "III":
                 reader = self.ii_factory(machine["port"])
                 plan = list(channel_inventory_requests(machine["channel_count"]))
                 expected = [f"{code}:{channel}" for code, channel in plan]
@@ -193,14 +211,14 @@ class Supervisor:
                               skipped_polls=prior + skipped)
                     next_poll += (skipped + 1) * interval
                     try:
-                        failures = self._poll(machine, reader)
+                        failures = self._poll(machine, reader, stop=stop)
                         self._set(ident, last_success=_utc() if not failures else self._states[ident]["last_success"],
                                   error="; ".join(failures) if failures else None)
                     except SpoolError:
                         raise
                     except Exception as exc:
                         self._set(ident, error=f"status read failed: {type(exc).__name__}: {exc}")
-                if not inventory_finished:
+                if not inventory_finished and not stop.is_set():
                     try:
                         item_key, item = next(inventory)
                     except StopIteration:
@@ -226,7 +244,10 @@ class Supervisor:
                         except Exception as exc:
                             self.spool.record_scan_item(scan_id, item_key, outcome="failed")
                             self._set(ident, error=f"inventory read failed: {type(exc).__name__}: {exc}")
-                stop.wait(max(0, next_poll - time.monotonic()))
+                if inventory_finished:
+                    stop.wait(max(0, min(next_poll, next_inventory) - time.monotonic()))
+                else:
+                    stop.wait(0.01)
             if not inventory_finished:
                 self._commit_scan(machine, scan_id)
             self._set(ident, state="stopped")
@@ -236,10 +257,12 @@ class Supervisor:
             if reader is not None and hasattr(reader, "close"):
                 reader.close()
 
-    def _poll(self, machine, reader):
+    def _poll(self, machine, reader, *, stop=None):
         failures = []
-        if machine["model"] == "II":
+        if machine["model"] == "III":
             def read_ii(code, channel=1):
+                if stop is not None and stop.is_set():
+                    return None
                 try:
                     response = reader.upload(code, channel)
                     return response, parse_upload(code, response.payload)
@@ -279,6 +302,8 @@ class Supervisor:
                                  quality="incomplete" if changed else "good")
         else:
             for kind, item_id, option in status_requests():
+                if stop is not None and stop.is_set():
+                    break
                 path = path_for(kind, item_id=item_id, option=option)
                 try:
                     response = reader.read(kind, item_id=item_id, option=option)
@@ -293,7 +318,7 @@ class Supervisor:
         return failures
 
     def _read_inventory(self, machine, reader, item):
-        if machine["model"] == "II":
+        if machine["model"] == "III":
             code, channel = item
             response = reader.upload(code, channel)
             return f"{code}:{channel}", parse_upload(code, response.payload), channel, response.raw_frame.hex()
@@ -309,9 +334,13 @@ class Supervisor:
             return
         count = machine["recipe_count"] if family == "recipe" else machine["channel_count"]
         if kind.endswith("_range"):
+            if isinstance(value, dict):
+                value = value.get("recipe" if family == "recipe" else "ch", value)
+                if isinstance(value, dict):
+                    value = value.get("no", value)
             if (not isinstance(value, dict) or type(value.get("min")) is not int
                     or type(value.get("max")) is not int
-                    or value["max"] - value["min"] + 1 != count
+                    or value["max"] - value["min"] + 1 < count
                     or value["min"] not in (0, 1)):
                 raise ValueError(f"{family} range conflicts with configured count")
         if kind.endswith("_all") or kind.endswith("_item"):
@@ -323,7 +352,7 @@ class Supervisor:
                                                   for entry in items):
                 raise ValueError(f"invalid {family} item shape")
             numbers = [entry["no"] for entry in items]
-            if len(numbers) != len(set(numbers)) or any(not 0 <= number < count for number in numbers):
+            if len(numbers) != len(set(numbers)) or any(not 0 <= number < (100 if family == "recipe" else 400) for number in numbers):
                 raise ValueError(f"{family} response contains duplicate or unexpected ID")
             if kind.endswith("_item") and numbers != [item_id - 1]:
                 raise ValueError(f"{family} URL ID and payload no disagree")

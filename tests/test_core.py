@@ -36,7 +36,7 @@ class CoreTests(unittest.TestCase):
             spool = Spool(path, max_record_bytes=2048, max_spool_bytes=10_000_000)
             old = spool.register_target("mqtt", {"host": "old"})
             new = spool.register_target("mqtt", {"host": "new"})
-            record = make_record("ii", "II", "status", "D01", {"value": "synthetic"})
+            record = make_record("ii", "III", "status", "D01", {"value": "synthetic"})
             spool.commit(record, [old])
             scan = spool.begin_scan("ii", "inventory", expected_items=["D01:1", "D02:1"])
             spool.record_scan_item(scan, "D01:1", record["record_id"])
@@ -48,7 +48,7 @@ class CoreTests(unittest.TestCase):
             with self.assertRaises(SpoolError):
                 spool.finish_scan(scan)
             with self.assertRaises(SpoolError):
-                spool.commit(make_record("ii", "II", "status", "D01", {"huge": "x" * 3000}))
+                spool.commit(make_record("ii", "III", "status", "D01", {"huge": "x" * 3000}))
             self.assertIsNotNone(spool.stats()["fault"])
             spool.close()
 
@@ -74,8 +74,14 @@ class CoreTests(unittest.TestCase):
             self.assertNotEqual(newest["point_time_ns"], previous["point_time_ns"])
             self.assertNotEqual(line_for_record(newest), line_for_record(previous))
             self.assertIn("ทดสอบ", line_for_record(previous))
-            self.assertNotIn("record_id=", line_for_record(previous).split(" body=")[0])
             replay_line = line_for_record(previous)
+            measurement_and_tags, fields = replay_line.split(" ", 1)
+            self.assertTrue(measurement_and_tags.startswith("musashi_iv,"))
+            self.assertIn("source=/v1/export/log", measurement_and_tags)
+            self.assertIn("record_type=export", measurement_and_tags)
+            self.assertNotIn("record_id=", measurement_and_tags)
+            self.assertIn("record_id=", fields)
+            self.assertIn("body=", fields)
             spool.close()
             reopened = Spool(Path(directory) / "spool.sqlite3")
             self.assertEqual(line_for_record(reopened.list_records(limit=2)[1]), replay_line)
@@ -86,14 +92,14 @@ class CoreTests(unittest.TestCase):
             spool = Spool(Path(directory) / "spool.sqlite3", max_record_bytes=2048,
                           max_spool_bytes=2_000_000)
             for counter in range(1500):
-                spool.commit(make_record("ii", "II", "status", "D05",
+                spool.commit(make_record("ii", "III", "status", "D05",
                                          {"counter": counter, "padding": "x" * 200}))
             self.assertLess(spool.stats()["records"], 1500)
             self.assertIsNone(spool.stats()["fault"])
             target = spool.register_target("mqtt", {"id": "synthetic"})
             with self.assertRaises(SpoolError):
                 for counter in range(5000):
-                    spool.commit(make_record("ii", "II", "status", "D05",
+                    spool.commit(make_record("ii", "III", "status", "D05",
                                              {"counter": counter, "padding": "x" * 500}), [target])
             self.assertGreater(spool.stats()["pending"], 0)
             self.assertIsNotNone(spool.stats()["fault"])
@@ -103,7 +109,7 @@ class CoreTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             spool = Spool(Path(directory) / "spool.sqlite3")
             target = spool.register_target("mqtt", {"host": "synthetic"})
-            record = make_record("ii", "II", "status", "D01", {"value": "synthetic"})
+            record = make_record("ii", "III", "status", "D01", {"value": "synthetic"})
             spool.commit(record, [target])
             scan = spool.begin_scan("ii", "inventory", expected_items=["D01:1"])
             spool.record_scan_item(scan, "D01:1", record["record_id"])
@@ -122,7 +128,7 @@ class CoreTests(unittest.TestCase):
             self.assertEqual(spool.list_scans(), [])
             self.assertIsNone(spool.stats()["fault"])
             self.assertEqual(spool.db.execute("SELECT count(*) FROM targets").fetchone()[0], 0)
-            next_record = make_record("ii", "II", "status", "D01", {"value": "next"},
+            next_record = make_record("ii", "III", "status", "D01", {"value": "next"},
                                       observed_at=record["observed_at"])
             spool.commit(next_record)
             stored_next = spool.list_records(limit=1)[0]

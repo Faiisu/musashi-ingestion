@@ -5,6 +5,7 @@ from dataclasses import dataclass
 import http.client
 import ipaddress
 import json
+from datetime import datetime
 from threading import Lock
 
 STATUS = ("main", "channel", "recipe", "error", "alarm", "totalCounter",
@@ -107,11 +108,13 @@ class IVReader:
                 raw = response.read(self.max_bytes + 1)
                 if len(raw) > self.max_bytes:
                     raise IVReadError("response exceeds byte limit")
-                if kind == "export_log":
+                if kind in ("export_log", "time"):
                     try:
                         value = raw.decode("utf-8")
-                    except UnicodeError as exc:
-                        raise IVReadError("invalid TSV encoding") from exc
+                        if kind == "time":
+                            datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+                    except (UnicodeError, ValueError) as exc:
+                        raise IVReadError("invalid time response" if kind == "time" else "invalid TSV encoding") from exc
                 else:
                     try:
                         value = json.loads(raw.decode("utf-8"))

@@ -229,10 +229,8 @@
       }
     },
     "/v1/time": {
-      "kind": "json",
-      "body": {
-        "time": "synthetic"
-      }
+      "kind": "tsv",
+      "body": "2026-09-30T09:16:19+09:00"
     },
     "/v1/info/recipe/data/all": {
       "kind": "json",

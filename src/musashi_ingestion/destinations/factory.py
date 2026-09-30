@@ -8,7 +8,7 @@ Errors intentionally omit connection strings, paths, and secret values.
 import json
 from pathlib import Path
 
-from .influx import InfluxDestination
+from .influx import InfluxDestination, ensure_bucket
 from .mqtt import MQTTDestination
 from .postgres import PostgresDestination
 from .postgres import MIGRATION_001
@@ -87,19 +87,28 @@ def create_destination(config: dict):
         url, org, bucket = (config.get(name) for name in ("url", "org", "bucket"))
         if not all(isinstance(value, str) and value for value in (url, org, bucket)):
             raise DestinationSetupError("InfluxDB url, org, and bucket are required")
+        client = None
         try:
             client = InfluxDBClient(url=url, token=_secret(config), org=org,
                                     timeout=int(config.get("timeout_ms", 10000)),
                                     verify_ssl=config.get("verify_ssl", True))
             if not client.ping():
-                client.close()
                 raise DestinationSetupError("InfluxDB connection failed")
+            try:
+                ensure_bucket(client, bucket, org)
+            except Exception:
+                raise DestinationSetupError("InfluxDB bucket check/create failed; verify token permissions") from None
             destination = InfluxDestination(client.write_api(write_options=SYNCHRONOUS), bucket, org,
                                             max_payload_bytes=int(config.get("max_payload_bytes", 8388608)))
             destination.client = client
             return destination
-        except DestinationSetupError:
-            raise
-        except Exception:
+        except Exception as exc:
+            if client is not None:
+                try:
+                    client.close()
+                except Exception:
+                    pass
+            if isinstance(exc, DestinationSetupError):
+                raise
             raise DestinationSetupError("InfluxDB connection failed") from None
     raise DestinationSetupError("unsupported destination kind")

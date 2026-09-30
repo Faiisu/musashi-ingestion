@@ -25,7 +25,7 @@ class RecoveryTests(unittest.TestCase):
             pages = spool.db.execute("PRAGMA page_count").fetchone()[0]
             spool.db.execute(f"PRAGMA max_page_count={pages}")
             with self.assertRaises(SpoolError):
-                spool.commit(make_record("ii", "II", "status", "D01", {"value": "x" * 300_000}), [target])
+                spool.commit(make_record("ii", "III", "status", "D01", {"value": "x" * 300_000}), [target])
             self.assertEqual(spool.stats()["records"], 0)
             self.assertEqual(spool.stats()["pending"], 0)
             self.assertIn("commit failed", spool.stats()["fault"])
@@ -39,7 +39,7 @@ class RecoveryTests(unittest.TestCase):
             spool.db.execute(f"PRAGMA max_page_count={pages}")
             with patch.object(spool, "_fault", side_effect=sqlite3.OperationalError("database or disk is full")):
                 with self.assertRaisesRegex(SpoolError, "spool commit failed"):
-                    spool.commit(make_record("ii", "II", "status", "D01",
+                    spool.commit(make_record("ii", "III", "status", "D01",
                                              {"value": "x" * 300_000}))
             self.assertEqual(spool.stats()["records"], 0)
             spool.close()
@@ -59,7 +59,7 @@ from musashi_ingestion.pipeline.spool import Spool, make_record
 database, marker = map(Path, sys.argv[1:])
 spool = Spool(database)
 target = spool.register_target("mqtt", {"host": "old"})
-record = make_record("ii", "II", "status", "D01", {"value": 1}, record_id="committed")
+record = make_record("ii", "III", "status", "D01", {"value": 1}, record_id="committed")
 spool.commit(record, [target])
 scan = spool.begin_scan("ii", "inventory", scan_id="partial-scan", expected_items=["D01:1", "D02:1"])
 spool.record_scan_item(scan, "D01:1", record["record_id"])
@@ -94,7 +94,7 @@ time.sleep(30)
         with tempfile.TemporaryDirectory() as directory:
             spool = Spool(Path(directory) / "spool.sqlite3")
             old = spool.register_target("postgres", {"host": "old"})
-            record = make_record("ii", "II", "status", "D01", {"value": 2})
+            record = make_record("ii", "III", "status", "D01", {"value": 2})
             spool.commit(record, [old])
             new = spool.register_target("postgres", {"host": "new"})
             self.assertEqual(spool.pending(new), [])
@@ -145,7 +145,7 @@ time.sleep(30)
             store.save(0, {"version": 1, "machines": [], "destinations": []})
             spool = Spool(source / "spool.sqlite3")
             target = spool.register_target("mqtt", {"host": "old"})
-            record = make_record("ii", "II", "status", "D01", {"value": 3})
+            record = make_record("ii", "III", "status", "D01", {"value": 3})
             spool.commit(record, [target])
             scan = spool.begin_scan("ii", "inventory", expected_items=["D01:1", "D02:1"])
             spool.record_scan_item(scan, "D01:1", record["record_id"])

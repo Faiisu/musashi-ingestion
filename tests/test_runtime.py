@@ -42,7 +42,7 @@ class RuntimeTests(unittest.TestCase):
             store = ConfigStore(Path(directory) / "config.json")
             spool = Spool(Path(directory) / "spool.sqlite3")
             supervisor = Supervisor(store, spool)
-            machine = {"id": "ii-1", "model": "II"}
+            machine = {"id": "ii-1", "model": "III"}
             fake = FakeII("/dev/serial/by-id/synthetic", changed=True)
             failures = supervisor._poll(machine, fake)
             self.assertTrue(any("channel changed" in item for item in failures))
@@ -59,7 +59,7 @@ class RuntimeTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             spool = Spool(Path(directory) / "spool.sqlite3")
             supervisor = Supervisor(ConfigStore(Path(directory) / "config.json"), spool)
-            failures = supervisor._poll({"id": "ii-1", "model": "II"},
+            failures = supervisor._poll({"id": "ii-1", "model": "III"},
                                         FakeII("/dev/serial/by-id/synthetic", fail_code="D07"))
             self.assertTrue(any(item.startswith("D07") for item in failures))
             self.assertTrue(any(record["record_type"] == "error" and record["source"] == "D07"

@@ -133,7 +133,7 @@ class IVContractTests(unittest.TestCase):
         machine = {"recipe_count": 2, "channel_count": 2}
         for name, request, response, expected_error in (
                 ("missing-id", ("channel_all", None, None), {"ch": [{"disPress": 35.5}]}, "invalid channel item shape"),
-                ("malformed-range", ("recipe_range", None, None), {"min": 0, "max": 99}, "recipe range conflicts with configured count")):
+                ("malformed-range", ("recipe_range", None, None), {"min": 0, "max": 0}, "recipe range conflicts with configured count")):
             kind, item_id, option = request
             with self.subTest(name=name), self.assertRaisesRegex(ValueError, expected_error):
                 Supervisor._validate_iv_inventory(machine, request, response)

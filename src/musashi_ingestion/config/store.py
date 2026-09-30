@@ -77,15 +77,15 @@ def validate_config(document: dict) -> None:
             seen.add(ident)
             if name == "machines":
                 model = entry.get("model")
-                if model not in ("II", "IV"):
-                    errors[p + ".model"] = "must be II or IV"
+                if model not in ("III", "IV"):
+                    errors[p + ".model"] = "must be III or IV"
                 interval = entry.get("poll_interval_seconds", 1)
                 if isinstance(interval, bool) or not isinstance(interval, (int, float)) or not math.isfinite(interval) or interval < 1:
                     errors[p + ".poll_interval_seconds"] = "must be finite and at least 1"
                 refresh = entry.get("inventory_interval_seconds", 3600)
                 if isinstance(refresh, bool) or not isinstance(refresh, (int, float)) or not math.isfinite(refresh) or refresh < 60:
                     errors[p + ".inventory_interval_seconds"] = "must be finite and at least 60"
-                if model == "II":
+                if model == "III":
                     port = entry.get("port")
                     if not isinstance(port, str) or not port.startswith("/dev/serial/by-id/"):
                         errors[p + ".port"] = "select a /dev/serial/by-id device"
@@ -135,7 +135,7 @@ def validate_config(document: dict) -> None:
     ports = {}
     iv_endpoints = set()
     for i, machine in enumerate(document.get("machines", []) if isinstance(document.get("machines", []), list) else []):
-        if isinstance(machine, dict) and machine.get("model") == "II":
+        if isinstance(machine, dict) and machine.get("model") == "III":
             port = machine.get("port")
             if port in ports:
                 errors[f"machines[{i}].port"] = "duplicate serial port"
