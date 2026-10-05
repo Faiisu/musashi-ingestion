@@ -31,6 +31,7 @@ ENV/
 *.db-shm
 /var/lib/musashi/spool/
 data/spool/
+data/spool.sqlite3*
 spool/
 
 # Local configurations and secrets
