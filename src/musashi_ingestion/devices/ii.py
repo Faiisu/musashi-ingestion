@@ -6,6 +6,7 @@ manual-derived fixtures and hardware confirmation; their validated bytes are ret
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from threading import Lock
 from typing import Callable, Iterator
 import time
@@ -43,6 +44,18 @@ def checksum(payload: bytes) -> bytes:
     return f"{-sum(payload) & 255:02X}".encode("ascii")
 
 
+def is_supported_port(port: object) -> bool:
+    """Accept explicit device paths and the simulator's raw TCP serial URL."""
+    if not isinstance(port, str):
+        return False
+    if (port.startswith("/dev/serial/by-id/") and not port.endswith("/")
+            and ".." not in port.split("/")):
+        return True
+    if re.fullmatch(r"/dev/pts/[0-9]+|/dev/ttys[0-9]+", port):
+        return True
+    return port == "socket://musashi-iii:9000"
+
+
 def request_frame(code: str, channel: int = 1) -> bytes:
     if code not in CHANNEL_UPLOADS | MACHINE_UPLOADS:
         raise ValueError("unsupported upload code")
@@ -69,8 +82,8 @@ class IIReader:
 
     def __init__(self, port: str, serial_factory: Callable | None = None,
                  timeout: float = 2.0, max_frame_bytes: int = 128):
-        if not isinstance(port, str) or not port.startswith("/dev/serial/by-id/") or port.endswith("/") or ".." in port.split("/"):
-            raise ValueError("select an explicit /dev/serial/by-id device")
+        if not is_supported_port(port):
+            raise ValueError("select an explicit serial device, pseudo-terminal or simulator socket URL")
         if not 0 < timeout <= 30 or not 16 <= max_frame_bytes <= 65535:
             raise ValueError("invalid serial bounds")
         self.port, self.timeout, self.max_frame_bytes = port, timeout, max_frame_bytes
@@ -82,6 +95,9 @@ class IIReader:
     @staticmethod
     def _open_serial(port: str, timeout: float):
         import serial  # optional runtime dependency
+        if port.startswith("socket://"):
+            return serial.serial_for_url(port, baudrate=9600, bytesize=8, parity="N",
+                                         stopbits=1, timeout=timeout, write_timeout=timeout)
         return serial.Serial(port=port, baudrate=9600, bytesize=8, parity="N",
                              stopbits=1, timeout=timeout, write_timeout=timeout)
 

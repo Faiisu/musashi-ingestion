@@ -33,7 +33,7 @@ Completion: unverified
 - [ ] SQL queries distinguish complete, partial, and not-started scans and list missing items.
 - [ ] Replay of an accepted record yields one immutable row; interrupted batch leaves uncommitted rows pending.
 - [ ] Database outage leaves this target pending while MQTT/Influx delivery can proceed.
-- [ ] A new database receives retained history within the visible window; changing its endpoint reroutes only its pending rows and preserves existing confirmed rows.
+- [ ] A new database receives records still present in the spool within the visible window; fully delivered records have already been deleted. Changing its endpoint reroutes only its pending rows and preserves other lanes' assignments.
 
 **Verification:** Run migrations and queries against a disposable PostgreSQL instance, including replay, large record, outage, and transaction interruption.
 

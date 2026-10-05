@@ -1,0 +1,109 @@
+/* Overview-specific refinements. Shared primitives belong in components.css. */
+.page-view--overview .status-strip{
+  min-width:0
+}
+
+.page-view--overview .metric-foot{
+  color:#68766e;
+  font-size:10px;
+  line-height:1.5;
+  overflow-wrap:anywhere
+}
+
+.page-view--overview .status-copy{
+  min-width:0
+}
+
+.page-view--overview .status-copy > div{
+  min-width:0
+}
+
+.page-view--overview .status-title,
+.page-view--overview .status-subtitle{
+  overflow-wrap:anywhere
+}
+
+.page-view--overview .status-subtitle{
+  line-height:1.45
+}
+
+.page-view--overview .overview-table-scroll:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:-2px
+}
+
+.page-view--overview .overview-machine-table{
+  min-width:660px
+}
+
+.page-view--overview .overview-machine-table td:nth-child(2){
+  max-width:220px;
+  overflow-wrap:anywhere;
+  white-space:normal
+}
+
+.page-view--overview .overview-machine-table td:last-child .badge{
+  white-space:normal;
+  line-height:1.35
+}
+
+.page-view--overview .coverage-item + .coverage-item{
+  margin-top:17px
+}
+
+.page-view--overview .coverage-item .coverage-row{
+  margin:0 0 4px
+}
+
+.page-view--overview .coverage-meta{
+  line-height:1.45;
+  overflow-wrap:anywhere
+}
+
+.page-view--overview .record-row > div{
+  min-width:0
+}
+
+.page-view--overview .record-title,
+.page-view--overview .record-meta{
+  overflow-wrap:anywhere
+}
+
+.page-view--overview .record-time{
+  white-space:nowrap
+}
+
+@media(max-width:720px){
+  .page-view--overview .status-strip{
+    display:grid;
+    grid-template-columns:minmax(0,1fr);
+    gap:10px
+  }
+
+  .page-view--overview .status-right{
+    align-items:center;
+    flex-direction:row;
+    flex-wrap:wrap;
+    padding-left:40px
+  }
+
+  .page-view--overview .overview-machine-table{
+    min-width:620px
+  }
+
+  .page-view--overview .record-row{
+    grid-template-columns:8px minmax(0,1fr);
+    align-items:start
+  }
+
+  .page-view--overview .record-time{
+    grid-column:2;
+    white-space:normal
+  }
+}
+
+@media(max-width:360px){
+  .page-view--overview .metric-grid{
+    grid-template-columns:minmax(0,1fr)
+  }
+}

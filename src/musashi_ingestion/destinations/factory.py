@@ -24,7 +24,7 @@ def _secret(config: dict) -> str:
         raise DestinationSetupError("destination secret_ref is required")
     try:
         secret = Path(reference).read_text(encoding="utf-8").strip()
-    except (OSError, UnicodeError) as exc:
+    except (OSError, UnicodeError):
         raise DestinationSetupError("destination secret file is unreadable") from None
     if not secret:
         raise DestinationSetupError("destination secret file is empty")

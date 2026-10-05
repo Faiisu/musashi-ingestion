@@ -1,0 +1,119 @@
+name: musashi-dev
+
+services:
+  ingestion:
+    build: .
+    user: "10001:10001"
+    depends_on:
+      - musashi-iii
+      - musashi-iv
+      - mqtt
+      - postgres
+      - influxdb
+    environment:
+      MUSASHI_BIND: 0.0.0.0
+      MUSASHI_PORT: 8080
+      MUSASHI_ALLOWED_ORIGINS: "*"
+      MUSASHI_DATA_DIR: /data
+      MUSASHI_DEV_DEFAULTS: "1"
+      PYTHONPATH: /app/src
+      PYTHONDONTWRITEBYTECODE: "1"
+      OPERATOR_USERNAME: ${OPERATOR_USERNAME-admin}
+      OPERATOR_PASSWORD: ${OPERATOR_PASSWORD-00000000}
+      DEV_MQTT_USER: ${DEV_MQTT_USER:-musashi}
+      DEV_MQTT_PASSWORD: ${DEV_MQTT_PASSWORD:-dev-mqtt-password}
+      DEV_POSTGRES_DB: ${DEV_POSTGRES_DB:-musashi_dev}
+      DEV_POSTGRES_USER: ${DEV_POSTGRES_USER:-musashi}
+      DEV_POSTGRES_PASSWORD: ${DEV_POSTGRES_PASSWORD:-dev-postgres-password}
+      DEV_INFLUX_TOKEN: ${DEV_INFLUX_TOKEN:-dev-influx-token-change-me}
+      DEV_INFLUX_ORG: ${DEV_INFLUX_ORG:-musashi-dev}
+      DEV_INFLUX_BUCKET: ${DEV_INFLUX_BUCKET:-musashi-dev}
+    command: ["python", "/app/scripts/dev_reload.py"]
+    ports:
+      - "${MUSASHI_DEV_BIND:-0.0.0.0}:${MUSASHI_DEV_PORT:-8081}:8080"
+    volumes:
+      - ./src:/app/src:ro
+      - ./scripts/dev_reload.py:/app/scripts/dev_reload.py:ro
+      - musashi_dev_data:/data
+    networks:
+      musashi_dev:
+        ipv4_address: 172.30.200.10
+
+  musashi-iii:
+    build: .
+    user: "10001:10001"
+    command: ["python", "/app/simulations/iii/server.py", "--transport", "tcp", "--host", "0.0.0.0", "--port", "9000", "--channels", "4", "--displayed-channel", "1"]
+    volumes:
+      - ./simulations/iii/responses.json:/app/simulations/iii/responses.json:ro
+    networks:
+      musashi_dev:
+        ipv4_address: 172.30.200.2
+
+  musashi-iv:
+    build: .
+    user: "10001:10001"
+    command: ["python", "/app/simulations/iv/server.py", "--host", "0.0.0.0", "--port", "1024", "--recipes", "100", "--channels", "400"]
+    volumes:
+      - ./simulations/iv/responses.json:/app/simulations/iv/responses.json:ro
+    networks:
+      musashi_dev:
+        ipv4_address: 172.30.200.3
+
+  mqtt:
+    image: eclipse-mosquitto:2
+    command: ["/bin/sh", "/mosquitto/config/start.sh"]
+    environment:
+      DEV_MQTT_USER: ${DEV_MQTT_USER:-musashi}
+      DEV_MQTT_PASSWORD: ${DEV_MQTT_PASSWORD:-dev-mqtt-password}
+    ports:
+      - "127.0.0.1:${DEV_MQTT_PORT:-1883}:1883"
+    volumes:
+      - ./simulations/mqtt/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - ./simulations/mqtt/start.sh:/mosquitto/config/start.sh:ro
+      - mqtt_dev_data:/mosquitto/data
+    networks:
+      musashi_dev:
+        ipv4_address: 172.30.200.4
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${DEV_POSTGRES_DB:-musashi_dev}
+      POSTGRES_USER: ${DEV_POSTGRES_USER:-musashi}
+      POSTGRES_PASSWORD: ${DEV_POSTGRES_PASSWORD:-dev-postgres-password}
+    ports:
+      - "127.0.0.1:${DEV_POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      musashi_dev:
+        ipv4_address: 172.30.200.5
+
+  influxdb:
+    image: influxdb:2.7-alpine
+    environment:
+      DOCKER_INFLUXDB_INIT_MODE: setup
+      DOCKER_INFLUXDB_INIT_USERNAME: ${DEV_INFLUX_USER:-musashi}
+      DOCKER_INFLUXDB_INIT_PASSWORD: ${DEV_INFLUX_PASSWORD:-dev-influx-password}
+      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${DEV_INFLUX_TOKEN:-dev-influx-token-change-me}
+      DOCKER_INFLUXDB_INIT_ORG: ${DEV_INFLUX_ORG:-musashi-dev}
+      DOCKER_INFLUXDB_INIT_BUCKET: ${DEV_INFLUX_BUCKET:-musashi-dev}
+    ports:
+      - "127.0.0.1:${DEV_INFLUX_PORT:-8086}:8086"
+    volumes:
+      - influx_dev_data:/var/lib/influxdb2
+    networks:
+      musashi_dev:
+        ipv4_address: 172.30.200.6
+
+volumes:
+  musashi_dev_data:
+  mqtt_dev_data:
+  postgres_dev_data:
+  influx_dev_data:
+
+networks:
+  musashi_dev:
+    ipam:
+      config:
+        - subnet: 172.30.200.0/24

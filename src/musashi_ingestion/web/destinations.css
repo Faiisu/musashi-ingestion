@@ -1,5 +1,5 @@
 /* Destinations page: delivery-lane health and backlog */
-.destination-summary{
+.page-view--destinations .destination-summary{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
   background:#fff;
@@ -8,7 +8,7 @@
   margin:0 0 14px;
   overflow:hidden
 }
-.destination-summary>div{
+.page-view--destinations .destination-summary>div{
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -16,27 +16,27 @@
   padding:15px 18px;
   border-right:1px solid var(--line)
 }
-.destination-summary>div:last-child{
+.page-view--destinations .destination-summary>div:last-child{
   border-right:0
 }
-.destination-summary .machine-summary-label{
-  font-size:10px;
+.page-view--destinations .destination-summary .machine-summary-label{
+  font-size:11px;
   color:#7b877f;
   font-weight:650
 }
-.destination-summary strong{
+.page-view--destinations .destination-summary strong{
   font-size:18px;
   line-height:1;
   font-variant-numeric:tabular-nums;
   letter-spacing:-.5px
 }
-.destination-summary .summary-good{
+.page-view--destinations .destination-summary .summary-good{
   color:var(--accent-dark)
 }
-.destination-summary .summary-danger{
+.page-view--destinations .destination-summary .summary-danger{
   color:var(--danger)
 }
-.destination-retention{
+.page-view--destinations .destination-retention{
   display:flex;
   align-items:center;
   gap:12px;
@@ -46,7 +46,7 @@
   border-radius:12px;
   background:#f8faf8
 }
-.retention-mark{
+.page-view--destinations .retention-mark{
   display:grid;
   place-items:center;
   width:32px;
@@ -58,62 +58,62 @@
   font-size:14px;
   font-weight:800
 }
-.retention-copy{
+.page-view--destinations .retention-copy{
   display:flex;
   flex:1;
   flex-direction:column;
   gap:2px;
   min-width:0
 }
-.retention-copy strong{
+.page-view--destinations .retention-copy strong{
   font-size:11px;
   color:#38483e
 }
-.retention-copy span{
-  font-size:9px;
+.page-view--destinations .retention-copy span{
+  font-size:11px;
   color:#859188
 }
-.retention-values{
+.page-view--destinations .retention-values{
   display:flex;
   gap:22px
 }
-.retention-values>div{
+.page-view--destinations .retention-values>div{
   display:grid;
   gap:2px
 }
-.retention-values span{
-  font-size:8px;
+.page-view--destinations .retention-values span{
+  font-size:10px;
   color:#98a29b
 }
-.retention-values strong{
-  font-size:9px;
+.page-view--destinations .retention-values strong{
+  font-size:11px;
   font-weight:700;
   color:#57665d
 }
-.destination-browser{
+.page-view--destinations .destination-browser{
   background:#fff;
   border:1px solid var(--line);
   border-radius:12px 12px 0 0;
   overflow:hidden
 }
-.destination-browser-head{
+.page-view--destinations .destination-browser-head{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:16px;
   padding:16px 18px 13px
 }
-.destination-browser-head h2{
+.page-view--destinations .destination-browser-head h2{
   margin:0;
   font-size:13px;
   letter-spacing:-.15px
 }
-.destination-browser-head p{
+.page-view--destinations .destination-browser-head p{
   margin:3px 0 0;
   color:#929d96;
-  font-size:10px
+  font-size:11px
 }
-.destination-search{
+.page-view--destinations .destination-search{
   display:flex;
   align-items:center;
   gap:8px;
@@ -125,15 +125,15 @@
   color:#829087;
   background:#fff
 }
-.destination-search:focus-within{
+.page-view--destinations .destination-search:focus-within{
   border-color:#83ad94;
   box-shadow:0 0 0 3px rgb(22 119 84 / .10)
 }
-.destination-search>span{
+.page-view--destinations .destination-search>span{
   font-size:18px;
   line-height:1
 }
-.destination-search input{
+.page-view--destinations .destination-search input{
   width:100%;
   min-width:0;
   border:0;
@@ -142,10 +142,18 @@
   color:var(--ink);
   font-size:11px
 }
-.destination-search input::placeholder{
+.page-view--destinations .destination-search input::placeholder{
   color:#a1aaa4
 }
-.destination-filter-row{
+.page-view--destinations .destination-filter:focus-visible,
+.page-view--destinations .destination-actions button:focus-visible,
+.page-view--destinations .destination-empty button:focus-visible{
+  outline:3px solid #83ad94;
+  outline-offset:2px;
+  position:relative;
+  z-index:1
+}
+.page-view--destinations .destination-filter-row{
   display:flex;
   align-items:center;
   gap:4px;
@@ -153,7 +161,7 @@
   border-bottom:1px solid var(--line);
   overflow-x:auto
 }
-.destination-filter{
+.page-view--destinations .destination-filter{
   display:inline-flex;
   align-items:center;
   gap:7px;
@@ -164,17 +172,17 @@
   background:transparent;
   color:#758179;
   white-space:nowrap;
-  font-size:10px;
+  font-size:12px;
   font-weight:700
 }
-.destination-filter:hover{
+.page-view--destinations .destination-filter:hover{
   color:var(--accent-dark)
 }
-.destination-filter.active{
+.page-view--destinations .destination-filter.active{
   border-bottom-color:var(--accent);
   color:var(--accent-dark)
 }
-.destination-filter span{
+.page-view--destinations .destination-filter span{
   display:grid;
   place-items:center;
   min-width:18px;
@@ -183,18 +191,18 @@
   border-radius:9px;
   background:#f0f3f0;
   color:#77827b;
-  font-size:9px;
+  font-size:10px;
   font-variant-numeric:tabular-nums
 }
-.destination-filter.active span{
+.page-view--destinations .destination-filter.active span{
   background:var(--accent-wash);
   color:var(--accent-dark)
 }
-.destination-cards{
+.page-view--destinations .destination-cards{
   gap:12px;
   margin-top:12px
 }
-.destination-card{
+.page-view--destinations .destination-card{
   display:flex;
   flex-direction:column;
   min-width:0;
@@ -204,17 +212,21 @@
   background:#fff;
   transition:border-color .16s,box-shadow .16s
 }
-.destination-card:hover{
+.page-view--destinations .destination-card:hover{
   border-color:#cfdbd2;
   box-shadow:0 8px 22px rgb(31 48 38 / .05)
 }
-.destination-card-head{
+.page-view--destinations .destination-card:focus-within{
+  border-color:#83ad94;
+  box-shadow:0 0 0 3px rgb(22 119 84 / .08)
+}
+.page-view--destinations .destination-card-head{
   display:flex;
   align-items:center;
   gap:11px;
   min-width:0
 }
-.destination-kind-mark{
+.page-view--destinations .destination-kind-mark{
   display:grid;
   place-items:center;
   width:39px;
@@ -226,16 +238,16 @@
   color:var(--accent-dark);
   font:800 10px ui-monospace,monospace
 }
-.destination-identity{
+.page-view--destinations .destination-identity{
   flex:1;
   min-width:0
 }
-.destination-identity p{
+.page-view--destinations .destination-identity p{
   margin:0 0 2px;
   color:#89958d;
-  font-size:9px
+  font-size:11px
 }
-.destination-identity h2{
+.page-view--destinations .destination-identity h2{
   margin:0;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -244,19 +256,19 @@
   font-size:13px;
   letter-spacing:-.2px
 }
-.destination-actions{
+.page-view--destinations .destination-actions{
   display:flex;
   gap:5px
 }
-.destination-actions .small-button{
+.page-view--destinations .destination-actions .small-button{
   min-height:29px;
   padding:5px 9px
 }
-.destination-actions .small-button:disabled{
+.page-view--destinations .destination-actions .small-button:disabled{
   opacity:.45;
   cursor:not-allowed
 }
-.destination-target{
+.page-view--destinations .destination-target{
   display:grid;
   gap:5px;
   min-height:64px;
@@ -265,28 +277,28 @@
   border-top:1px solid #edf0ed;
   border-bottom:1px solid #edf0ed
 }
-.destination-target strong{
+.page-view--destinations .destination-target strong{
   overflow-wrap:anywhere;
   color:#4d5c53;
-  font-size:10px
+  font-size:12px
 }
-.destination-target>span:last-child{
+.page-view--destinations .destination-target>span:last-child{
   color:#929d96;
-  font-size:9px;
+  font-size:11px;
   overflow-wrap:anywhere
 }
-.destination-health{
+.page-view--destinations .destination-health{
   display:flex;
   align-items:center;
   gap:9px;
   min-height:42px;
   color:#89948d;
-  font-size:10px
+  font-size:12px
 }
-.destination-health.has-error{
+.page-view--destinations .destination-health.has-error{
   color:#a74943
 }
-.destination-error{
+.page-view--destinations .destination-error{
   padding:8px 10px;
   margin:0 0 10px;
   border-left:3px solid var(--danger);
@@ -296,7 +308,7 @@
   font-size:10px;
   overflow-wrap:anywhere
 }
-.destination-stats{
+.page-view--destinations .destination-stats{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:10px;
@@ -304,23 +316,23 @@
   padding-top:11px;
   border-top:1px solid #edf0ed
 }
-.destination-stats>div{
+.page-view--destinations .destination-stats>div{
   display:grid;
   gap:3px;
   min-width:0
 }
-.destination-stats span{
+.page-view--destinations .destination-stats span{
   color:#98a29b;
-  font-size:9px
+  font-size:11px
 }
-.destination-stats strong{
+.page-view--destinations .destination-stats strong{
   overflow-wrap:anywhere;
   color:#526057;
-  font-size:10px;
+  font-size:12px;
   font-weight:700;
   font-variant-numeric:tabular-nums
 }
-.destination-empty,.destination-no-results{
+.page-view--destinations .destination-empty,.page-view--destinations .destination-no-results{
   grid-column:1/-1;
   padding:35px 20px;
   text-align:center;
@@ -328,7 +340,7 @@
   border-radius:12px;
   background:#fff
 }
-.destination-empty-mark{
+.page-view--destinations .destination-empty-mark{
   display:grid;
   place-items:center;
   width:42px;
@@ -340,74 +352,100 @@
   font-size:17px;
   font-weight:800
 }
-.destination-empty h2{
+.page-view--destinations .destination-empty h2{
   margin:0;
   color:#344239;
   font-size:14px
 }
-.destination-empty p{
+.page-view--destinations .destination-empty p{
   margin:6px 0 15px;
   color:#859188;
   font-size:11px
 }
-.destination-no-results{
+.page-view--destinations .destination-no-results{
   display:flex;
   flex-direction:column;
   gap:4px;
   color:#8a958e;
   font-size:10px
 }
-.destination-no-results strong{
+.page-view--destinations .destination-no-results strong{
   color:#526057;
   font-size:11px
 }
 @media(max-width:720px){
-  .destination-summary>div{
+  .page-view--destinations .destination-summary{
+    grid-template-columns:repeat(2,minmax(0,1fr))
+  }
+  .page-view--destinations .destination-summary>div{
     align-items:flex-start;
     flex-direction:column;
     gap:6px;
-    padding:12px 10px
+    padding:12px
   }
-  .destination-summary .machine-summary-label{
-    font-size:9px
+  .page-view--destinations .destination-summary .machine-summary-label{
+    font-size:10px
   }
-  .destination-summary strong{
+  .page-view--destinations .destination-summary strong{
     font-size:17px
   }
-  .destination-retention{
+  .page-view--destinations .destination-retention{
     align-items:flex-start;
     flex-wrap:wrap;
     padding:12px
   }
-  .retention-values{
+  .page-view--destinations .retention-values{
     width:100%;
     padding-left:44px;
     gap:18px
   }
-  .destination-browser-head{
+  .page-view--destinations .destination-browser-head{
     align-items:flex-start;
     flex-direction:column;
     gap:11px;
     padding:14px
   }
-  .destination-search{
+  .page-view--destinations .destination-search{
     width:100%
   }
-  .destination-filter-row{
+  .page-view--destinations .destination-filter-row{
     padding:0 8px
   }
-  .destination-filter{
+  .page-view--destinations .destination-filter{
+    min-height:42px;
     padding:0 9px;
-    font-size:9px
+    font-size:12px
   }
-  .destination-cards{
+  .page-view--destinations .destination-cards{
     grid-template-columns:1fr;
     margin-top:9px
   }
-  .destination-card{
+  .page-view--destinations .destination-card{
     padding:14px
   }
-  .destination-actions .small-button{
-    padding:5px 7px
+  .page-view--destinations .destination-actions .small-button{
+    min-height:36px;
+    padding:6px 8px
+  }
+  .page-view--destinations .destination-card-head{
+    flex-wrap:wrap
+  }
+  .page-view--destinations .destination-identity{
+    flex-basis:calc(100% - 52px)
+  }
+  .page-view--destinations .destination-actions{
+    width:100%;
+    justify-content:flex-end
+  }
+  .page-view--destinations .retention-copy span,
+  .page-view--destinations .destination-browser-head p,
+  .page-view--destinations .destination-target>span:last-child,
+  .page-view--destinations .destination-stats span{
+    font-size:11px
+  }
+}
+@media(prefers-reduced-motion:reduce){
+  .page-view--destinations .destination-card{
+    transition:none
   }
 }

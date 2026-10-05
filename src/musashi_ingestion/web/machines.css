@@ -1,5 +1,5 @@
 /* Machines page: status-first inventory view */
-.machine-summary{
+.page-view--machines .machine-summary{
   display:grid;
   grid-template-columns:repeat(4,minmax(0,1fr));
   background:#fff;
@@ -8,7 +8,7 @@
   margin:0 0 14px;
   overflow:hidden
 }
-.machine-summary>div{
+.page-view--machines .machine-summary>div{
   display:flex;
   align-items:center;
   justify-content:space-between;
@@ -16,27 +16,27 @@
   padding:15px 18px;
   border-right:1px solid var(--line)
 }
-.machine-summary>div:last-child{
+.page-view--machines .machine-summary>div:last-child{
   border-right:0
 }
-.machine-summary-label{
-  font-size:10px;
-  color:#7b877f;
+.page-view--machines .machine-summary-label{
+  font-size:11px;
+  color:#5f6d64;
   font-weight:650
 }
-.machine-summary strong{
+.page-view--machines .machine-summary strong{
   font-size:18px;
   line-height:1;
   font-variant-numeric:tabular-nums;
   letter-spacing:-.5px
 }
-.machine-summary .summary-good{
+.page-view--machines .machine-summary .summary-good{
   color:var(--accent-dark)
 }
-.machine-summary .summary-danger{
+.page-view--machines .machine-summary .summary-danger{
   color:var(--danger)
 }
-.machine-lock-notice{
+.page-view--machines .machine-lock-notice{
   display:flex;
   align-items:center;
   gap:9px;
@@ -48,7 +48,7 @@
   color:#80570f;
   font-size:11px
 }
-.machine-lock-notice>span:first-child{
+.page-view--machines .machine-lock-notice>span:first-child{
   display:grid;
   place-items:center;
   width:19px;
@@ -58,30 +58,30 @@
   font-weight:800;
   flex:none
 }
-.machine-browser{
+.page-view--machines .machine-browser{
   background:#fff;
   border:1px solid var(--line);
   border-radius:12px 12px 0 0;
   overflow:hidden
 }
-.machine-browser-head{
+.page-view--machines .machine-browser-head{
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:16px;
   padding:16px 18px 13px
 }
-.machine-browser-head h2{
+.page-view--machines .machine-browser-head h2{
   margin:0;
   font-size:13px;
   letter-spacing:-.15px
 }
-.machine-browser-head p{
+.page-view--machines .machine-browser-head p{
   margin:3px 0 0;
-  color:#929d96;
-  font-size:10px
+  color:#647168;
+  font-size:11px
 }
-.machine-search{
+.page-view--machines .machine-search{
   display:flex;
   align-items:center;
   gap:8px;
@@ -93,15 +93,15 @@
   color:#829087;
   background:#fff
 }
-.machine-search:focus-within{
+.page-view--machines .machine-search:focus-within{
   border-color:#83ad94;
   box-shadow:0 0 0 3px rgb(22 119 84 / .10)
 }
-.machine-search>span{
+.page-view--machines .machine-search>span{
   font-size:18px;
   line-height:1
 }
-.machine-search input{
+.page-view--machines .machine-search input{
   width:100%;
   min-width:0;
   border:0;
@@ -110,10 +110,10 @@
   color:var(--ink);
   font-size:11px
 }
-.machine-search input::placeholder{
-  color:#a1aaa4
+.page-view--machines .machine-search input::placeholder{
+  color:#68756d
 }
-.machine-filter-row{
+.page-view--machines .machine-filter-row{
   display:flex;
   align-items:center;
   gap:4px;
@@ -121,7 +121,7 @@
   border-bottom:1px solid var(--line);
   overflow-x:auto
 }
-.machine-filter{
+.page-view--machines .machine-filter{
   display:inline-flex;
   align-items:center;
   gap:7px;
@@ -135,14 +135,14 @@
   font-size:10px;
   font-weight:700
 }
-.machine-filter:hover{
+.page-view--machines .machine-filter:hover{
   color:var(--accent-dark)
 }
-.machine-filter.active{
+.page-view--machines .machine-filter.active{
   border-bottom-color:var(--accent);
   color:var(--accent-dark)
 }
-.machine-filter span{
+.page-view--machines .machine-filter span{
   display:grid;
   place-items:center;
   min-width:18px;
@@ -154,17 +154,17 @@
   font-size:9px;
   font-variant-numeric:tabular-nums
 }
-.machine-filter.active span{
+.page-view--machines .machine-filter.active span{
   background:var(--accent-wash);
   color:var(--accent-dark)
 }
-.machine-cards{
+.page-view--machines .machine-cards{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:12px;
   margin-top:12px
 }
-.machine-card{
+.page-view--machines .machine-card{
   min-width:0;
   padding:16px 17px 13px;
   border:1px solid var(--line);
@@ -172,17 +172,17 @@
   background:#fff;
   transition:border-color .16s,box-shadow .16s
 }
-.machine-card:hover{
+.page-view--machines .machine-card:hover{
   border-color:#cfdbd2;
   box-shadow:0 8px 22px rgb(31 48 38 / .05)
 }
-.machine-card-top{
+.page-view--machines .machine-card-top{
   display:flex;
   align-items:center;
   gap:11px;
   min-width:0
 }
-.machine-model{
+.page-view--machines .machine-model{
   display:grid;
   place-items:center;
   width:39px;
@@ -196,11 +196,11 @@
   font-weight:850;
   letter-spacing:-.4px
 }
-.machine-card-title{
+.page-view--machines .machine-card-title{
   min-width:0;
   flex:1
 }
-.machine-card-title h2{
+.page-view--machines .machine-card-title h2{
   margin:0;
   overflow:hidden;
   text-overflow:ellipsis;
@@ -209,47 +209,47 @@
   font-size:13px;
   letter-spacing:-.2px
 }
-.machine-card-title p{
+.page-view--machines .machine-card-title p{
   margin:3px 0 0;
-  color:#929d96;
-  font-size:9px
+  color:#647168;
+  font-size:10px
 }
-.machine-card-actions{
+.page-view--machines .machine-card-actions{
   display:flex;
   gap:5px
 }
-.machine-card-actions .small-button{
+.page-view--machines .machine-card-actions .small-button{
   min-height:29px;
   padding:5px 9px
 }
-.machine-card-actions .small-button:disabled{
+.page-view--machines .machine-card-actions .small-button:disabled{
   opacity:.45;
   cursor:not-allowed
 }
-.machine-state-line{
+.page-view--machines .machine-state-line{
   display:flex;
   align-items:center;
   gap:9px;
   margin:14px 0 12px;
   padding-bottom:12px;
   border-bottom:1px solid #edf0ed;
-  color:#89948d;
-  font-size:10px
+  color:#647168;
+  font-size:11px
 }
-.machine-endpoint{
+.page-view--machines .machine-endpoint{
   display:grid;
   gap:5px;
   min-height:49px
 }
-.machine-endpoint .detail-label{
+.page-view--machines .machine-endpoint .detail-label{
   letter-spacing:.7px
 }
-.machine-endpoint strong{
+.page-view--machines .machine-endpoint strong{
   overflow-wrap:anywhere;
   color:#4d5c53;
   font-size:10px
 }
-.machine-specs{
+.page-view--machines .machine-specs{
   display:grid;
   grid-template-columns:repeat(2,minmax(0,1fr));
   gap:11px 16px;
@@ -257,21 +257,21 @@
   padding-top:12px;
   border-top:1px solid #edf0ed
 }
-.machine-specs>div{
+.page-view--machines .machine-specs>div{
   min-width:0
 }
-.machine-specs dt{
-  color:#98a29b;
-  font-size:9px
+.page-view--machines .machine-specs dt{
+  color:#647168;
+  font-size:10px
 }
-.machine-specs dd{
+.page-view--machines .machine-specs dd{
   margin:3px 0 0;
   color:#526057;
   font-size:10px;
   font-weight:650;
   font-variant-numeric:tabular-nums
 }
-.machine-error{
+.page-view--machines .machine-error{
   padding:8px 10px;
   margin:-2px 0 12px;
   border-left:3px solid var(--danger);
@@ -281,7 +281,7 @@
   font-size:10px;
   overflow-wrap:anywhere
 }
-.machine-empty,.machine-no-results{
+.page-view--machines .machine-empty,.page-view--machines .machine-no-results{
   grid-column:1/-1;
   padding:35px 20px;
   text-align:center;
@@ -289,7 +289,7 @@
   border-radius:12px;
   background:#fff
 }
-.machine-empty-mark{
+.page-view--machines .machine-empty-mark{
   display:grid;
   place-items:center;
   width:42px;
@@ -301,64 +301,90 @@
   font-size:17px;
   font-weight:800
 }
-.machine-empty h2{
+.page-view--machines .machine-empty h2{
   margin:0;
   color:#344239;
   font-size:14px
 }
-.machine-empty p{
+.page-view--machines .machine-empty p{
   margin:6px 0 15px;
   color:#859188;
   font-size:11px
 }
-.machine-no-results{
+.page-view--machines .machine-no-results{
   display:flex;
   flex-direction:column;
   gap:4px;
   color:#8a958e;
   font-size:10px
 }
-.machine-no-results strong{
+.page-view--machines .machine-no-results strong{
   color:#526057;
   font-size:11px
 }
 @media(max-width:720px){
-  .machine-summary>div{
+  .page-view--machines .machine-summary{
+    grid-template-columns:repeat(2,minmax(0,1fr))
+  }
+  .page-view--machines .machine-summary>div{
     align-items:flex-start;
     flex-direction:column;
     gap:6px;
-    padding:12px 10px
+    padding:12px
   }
-  .machine-summary-label{
-    font-size:9px
+  .page-view--machines .machine-summary>div:nth-child(odd){
+    border-right:1px solid var(--line)
   }
-  .machine-summary strong{
+  .page-view--machines .machine-summary>div:nth-child(even){
+    border-right:0
+  }
+  .page-view--machines .machine-summary>div:nth-child(-n+2){
+    border-bottom:1px solid var(--line)
+  }
+  .page-view--machines .machine-summary-label{
+    font-size:10px
+  }
+  .page-view--machines .machine-summary strong{
     font-size:17px
   }
-  .machine-browser-head{
+  .page-view--machines .machine-browser-head{
     align-items:flex-start;
     flex-direction:column;
     gap:11px;
     padding:14px
   }
-  .machine-search{
+  .page-view--machines .machine-search{
     width:100%
   }
-  .machine-filter-row{
+  .page-view--machines .machine-filter-row{
     padding:0 8px
   }
-  .machine-filter{
+  .page-view--machines .machine-filter{
     padding:0 9px;
     font-size:9px
   }
-  .machine-cards{
+  .page-view--machines .machine-cards{
     grid-template-columns:1fr;
     margin-top:9px
   }
-  .machine-card{
+  .page-view--machines .machine-card{
     padding:14px
   }
-  .machine-card-actions .small-button{
+  .page-view--machines .machine-card-actions .small-button{
     padding:5px 7px
+  }
+}
+@media(max-width:400px){
+  .page-view--machines .machine-card-top{
+    flex-wrap:wrap
+  }
+  .page-view--machines .machine-card-title{
+    flex-basis:calc(100% - 54px)
+  }
+  .page-view--machines .machine-card-actions{
+    margin-left:auto
+  }
+  .page-view--machines .machine-summary>div{
+    padding:11px 9px
   }
 }

@@ -2,7 +2,7 @@
   "use strict";
 
   const pageNames = {overview: "Overview", machines: "Machines", destinations: "Destinations", records: "Recent data"};
-  const state = {csrfToken: "", authenticated: false, page: "overview", health: null, config: null, status: null, records: [], scans: [], busy: false, edit: null, refreshTimer: null, machineFilter: "all", machineQuery: "", destinationFilter: "all", destinationQuery: ""};
+  const state = {csrfToken: "", authenticated: false, page: "overview", health: null, config: null, status: null, records: [], scans: [], spoolSamples: [], busy: false, edit: null, refreshTimer: null, machineFilter: "all", machineQuery: "", destinationFilter: "all", destinationQuery: ""};
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
   const esc = value => String(value ?? "").replace(/[&<>"']/g, char => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[char]));
@@ -56,7 +56,7 @@
 
   function clearSessionState({showLogin = false} = {}) {
     state.csrfToken = ""; state.authenticated = false;
-    state.config = null; state.status = null; state.records = []; state.scans = [];
+    state.config = null; state.status = null; state.records = []; state.scans = []; state.spoolSamples = [];
     state.edit = null;
     if (state.refreshTimer) clearInterval(state.refreshTimer);
     state.refreshTimer = null;
@@ -85,6 +85,13 @@
           api("/api/config"), api("/api/status"), api("/api/records"), api("/api/scans")
         ]);
         state.config = config; state.status = status; state.records = records.records || []; state.scans = scans.scans || [];
+        const spool = status.spool || {};
+        const sample = {at: Date.now(), diskBytes: Number(spool.disk_bytes), records: Number(spool.records), pending: Number(spool.pending)};
+        if (Number.isFinite(sample.diskBytes) && Number.isFinite(sample.records) && Number.isFinite(sample.pending)) {
+          state.spoolSamples = [...state.spoolSamples, sample]
+            .filter(item => sample.at - item.at <= 120_000)
+            .slice(-32);
+        }
         $("#machine-count").textContent = number(config.machines?.length || 0);
         $("#destination-count").textContent = number(config.destinations?.length || 0);
         $("#connection-dot").className = `live-dot ${state.health.process === "ok" ? "online" : "offline"}`;
@@ -113,9 +120,9 @@
     return `<div class="page-heading"><div><div class="kicker">${esc(kicker)}</div><h1>${esc(title)}</h1><p>${esc(description)}</p></div>${actions ? `<div class="heading-actions">${actions}</div>` : ""}</div>`;
   }
 
-  function workersActive() {
-    const machines = Object.values(state.status?.machines || {});
-    const destinations = Object.values(state.status?.destinations || {});
+  function workersActive(current) {
+    const machines = Object.values(current.status?.machines || {});
+    const destinations = Object.values(current.status?.destinations || {});
     return [...machines, ...destinations].some(worker => worker.worker_alive);
   }
 
@@ -130,160 +137,64 @@
     return `<article class="metric"><span class="metric-mark">${esc(mark)}</span><div class="metric-label">${esc(label)}</div><div class="metric-value">${esc(value)}<span class="metric-unit">${esc(unit)}</span></div><div class="metric-foot">${esc(foot)}</div></article>`;
   }
 
-  function machineStatus(machine) { return state.status?.machines?.[machine.id] || {}; }
-  function destinationStatus(destination) { return state.status?.destinations?.[destination.id] || {}; }
-
-  function machineState(machine) {
-    const live = machineStatus(machine);
-    return live.state || (live.worker_alive ? "running" : "stopped");
-  }
-
-  function destinationState(destination) {
-    const live = destinationStatus(destination);
-    if (live.error) return "fault";
-    return live.state || (live.worker_alive ? "running" : "stopped");
-  }
-
-  function machineRow(machine) {
-    const live = machineStatus(machine);
-    const endpoint = machine.model === "IV" ? `${machine.host}:${machine.port || 1024}` : machine.port;
-    const seen = live.last_success ? ago(live.last_success) : "No successful read yet";
-    return `<tr><td><div class="device-cell"><span class="device-avatar">${esc(machine.model)}</span><div><div class="device-name">${esc(machine.id)}</div><div class="device-meta">${machine.model === "III" ? "Serial interface" : "Network interface"}</div></div></div></td><td class="mono">${esc(endpoint)}</td><td>${statusBadge(live)}</td><td>${esc(seen)}</td><td>${live.error ? `<span class="badge danger">${esc(live.error)}</span>` : `<span class="mono">${number(live.skipped_polls || 0)} skipped</span>`}</td></tr>`;
-  }
-
-  function machineCard(machine) {
-    const live = machineStatus(machine);
-    const endpoint = machine.model === "IV" ? `${machine.host}:${machine.port || 1024}` : machine.port;
-    const currentState = machineState(machine);
-    const locked = Boolean(state.status?.running);
-    return `<article class="machine-card" data-machine-state="${esc(currentState)}">
-      <div class="machine-card-top"><span class="machine-model" aria-hidden="true">Σ${esc(machine.model)}</span><div class="machine-card-title"><h2>${esc(machine.id)}</h2><p>${machine.model === "III" ? "Musashi Super ΣCM III" : "Musashi Super ΣCM IV"}</p></div><div class="machine-card-actions"><button class="small-button" data-action="edit-machine" data-id="${esc(machine.id)}" ${locked ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Edit</button><button class="small-button danger" data-action="remove-machine" data-id="${esc(machine.id)}" ${locked ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Remove</button></div></div>
-      <div class="machine-state-line">${statusBadge(live)}<span>${live.error ? "Attention required" : live.last_success ? `Last read ${esc(ago(live.last_success))}` : "Waiting for first read"}</span></div>
-      ${live.error ? `<div class="machine-error" role="status">${esc(live.error)}</div>` : ""}
-      <div class="machine-endpoint"><span class="detail-label">${machine.model === "IV" ? "NETWORK ENDPOINT" : "SERIAL DEVICE"}</span><strong class="mono">${esc(endpoint || "Not configured")}</strong></div>
-      <dl class="machine-specs"><div><dt>Poll interval</dt><dd>${esc(machine.poll_interval_seconds ?? 1)} sec</dd></div><div><dt>Inventory scan</dt><dd>Every ${esc(machine.inventory_interval_seconds ?? 3600)} sec</dd></div><div><dt>Poll lag</dt><dd>${number(live.poll_lag_seconds || 0)} sec</dd></div><div><dt>Skipped polls</dt><dd>${number(live.skipped_polls || 0)}</dd></div></dl>
-    </article>`;
-  }
-
-  function destinationCard(destination) {
-    const live = destinationStatus(destination);
-    const kind = destination.kind || "unknown";
-    const kindName = {mqtt:"MQTT broker", postgres:"PostgreSQL", influxdb:"InfluxDB"}[kind] || kind;
-    const target = kind === "mqtt"
-      ? `${destination.host || "Broker host"}:${destination.port || (destination.tls ? 8883 : 1883)}`
-      : kind === "influxdb" ? destination.url || "InfluxDB URL not configured" : "Connection details stored in a protected secret file";
-    const pending = Number(live.pending_count || 0);
-    const targetMeta = kind === "mqtt" ? `Topic · ${destination.topic || "Not configured"}`
-      : kind === "influxdb" ? `${destination.org || "Organization not configured"} · ${destination.bucket || "Bucket not configured"}`
-      : "Credentials are kept outside the configuration response";
-    const deliveryMessage = live.error ? "Delivery needs attention" : pending ? `Oldest queued · ${ago(live.oldest_pending_at)}`
-      : live.last_success ? `Last delivered · ${ago(live.last_success)}` : "No successful delivery recorded";
-    const locked = Boolean(state.status?.running);
-    return `<article class="destination-card" data-destination-state="${esc(destinationState(destination))}">
-      <div class="destination-card-head"><div class="destination-kind-mark" aria-hidden="true">${esc(kind === "influxdb" ? "IF" : kind === "postgres" ? "PG" : "MQ")}</div><div class="destination-identity"><p>${esc(kindName)}</p><h2>${esc(destination.id)}</h2></div><div class="destination-actions"><button class="small-button" data-action="edit-destination" data-id="${esc(destination.id)}" ${locked ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Edit</button><button class="small-button danger" data-action="remove-destination" data-id="${esc(destination.id)}" ${locked ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Remove</button></div></div>
-      <div class="destination-target"><span class="detail-label">DELIVERY TARGET</span><strong class="mono">${esc(target)}</strong><span>${esc(targetMeta)}</span></div>
-      <div class="destination-health ${live.error ? "has-error" : ""}">${statusBadge({...live,state:destinationState(destination)})}<span>${esc(deliveryMessage)}</span></div>
-      ${live.error ? `<div class="destination-error" role="status">${esc(live.error)}</div>` : ""}
-      <div class="destination-stats"><div><span>Pending records</span><strong>${number(pending)}</strong></div><div><span>Oldest pending</span><strong>${pending ? esc(ago(live.oldest_pending_at)) : "Queue clear"}</strong></div></div>
-    </article>`;
-  }
-
   function emptyPanel(title, detail, action = "") {
     return `<div class="panel-empty"><strong>${esc(title)}</strong>${esc(detail)}${action ? `<div style="margin-top:13px">${action}</div>` : ""}</div>`;
   }
 
-  function renderOverview() {
-    const status = state.status || {}, spool = status.spool || {}, machines = state.config?.machines || [], destinations = state.config?.destinations || [];
-    const running = Boolean(status.running), fault = status.acquisition_fault || spool.fault;
-    const actions = running ? `<button class="button button-danger" data-action="stop">Stop acquisition</button>` : `<button class="button button-primary" data-action="start">Start acquisition <span aria-hidden="true">→</span></button>`;
-    const pendingCount = Number(spool.pending || 0);
-    const latestSuccess = machines.map(m => machineStatus(m).last_success).filter(Boolean).sort().at(-1);
-    const machineRows = machines.length ? machines.map(machineRow).join("") : `<tr><td colspan="5" class="empty-row">No machines configured</td></tr>`;
-    const latest = state.records.slice(0,5).map(record => `<div class="record-row"><i class="record-dot ${record.evidence_type === "simulated" ? "simulated" : ""}"></i><div><div class="record-title">${esc(record.machine_id)} <span class="mono">${esc(record.source)}</span></div><div class="record-meta">${esc(record.model)} · ${esc(record.record_type)} · <span class="${record.evidence_type === "simulated" ? "quality partial" : "quality"}">${esc(record.evidence_type)}</span></div></div><span class="record-time">${esc(ago(record.observed_at))}</span></div>`).join("");
-    return `${pageHeading("SYSTEM OVERVIEW", "System overview", "Current ingestion and delivery status.", actions)}
-      <section class="status-strip"><div class="status-copy"><span class="status-icon ${fault ? "warn" : running ? "good" : ""}">${fault ? "!" : running ? "↗" : "Ⅱ"}</span><div><div class="status-title">${fault ? "System fault detected" : running ? "Acquisition is running" : "Acquisition is stopped"}</div><div class="status-subtitle">${fault ? esc(fault) : running ? `Last successful read ${esc(ago(latestSuccess))}` : "Configure a machine, then start acquisition when ready."}</div></div></div><div class="status-right">${statusBadge({state:fault ? "fault" : running ? "running" : "stopped"})}<span class="badge">${state.health?.process === "ok" ? "SERVICE ONLINE" : "CHECK SERVICE"}</span></div></section>
-      <div class="metric-grid">${metric("Machines", number(machines.length), "configured", `${number(machines.filter(m => machineStatus(m).worker_alive).length)} workers active`, "M")}${metric("Destinations", number(destinations.length), "configured", `${number(destinations.filter(d => destinationStatus(d).worker_alive).length)} delivery workers`, "↗")}${metric("Pending delivery", number(pendingCount), "records", pendingCount ? `Oldest ${ago(spool.oldest_pending_at)}` : "No pending records", "…")}${metric("Spool", number(spool.records || 0), "records", `Disk ${number(spool.disk_bytes || 0)} bytes · WAL ${number(spool.wal_bytes || 0)} bytes`, "▤")}</div>
-      <div class="section-grid"><section class="panel"><div class="panel-head"><div><div class="panel-title">Configured machines</div><div class="panel-subtitle">Worker state and most recent read</div></div><button class="text-link" data-nav="machines">View all →</button></div><div class="table-scroll"><table class="data-table"><thead><tr><th>MACHINE</th><th>ENDPOINT</th><th>STATE</th><th>LAST SUCCESS</th><th>HEALTH</th></tr></thead><tbody>${machineRows}</tbody></table></div></section>
-      <section class="panel"><div class="panel-head"><div><div class="panel-title">Inventory coverage</div><div class="panel-subtitle">Most recent scan by machine</div></div><button class="text-link" data-nav="records">Details →</button></div><div class="coverage-wrap">${machines.length ? machines.map(machine => {const scans=state.scans.filter(scan=>scan.machine_id===machine.id);const scan=scans[0];const items=scan?.items||[];const done=items.filter(item=>["ok","unsupported"].includes(item.outcome)).length;const pct=items.length?Math.round(done/items.length*100):0;return `<div class="coverage-row"><span class="coverage-label">${esc(machine.id)}</span><div class="coverage-track" role="progressbar" aria-label="Inventory ${esc(machine.id)}" aria-valuenow="${pct}" aria-valuemin="0" aria-valuemax="100"><div class="coverage-fill" style="width:${pct}%"></div></div><span class="coverage-value">${items.length?`${pct}%`:"—"}</span></div><div class="panel-subtitle" style="margin:-6px 0 11px 111px">${scan?`${scan.completed_at?"Complete":"Partial"} · ${date(scan.started_at)}`:"No scan yet"}</div>`}).join("") : emptyPanel("No coverage data", "Add a machine to see scan coverage.")}</div></section></div>
-      <section class="panel"><div class="panel-head"><div><div class="panel-title">Recent records</div><div class="panel-subtitle">Latest 5 records in the spool · simulated data is highlighted</div></div><button class="text-link" data-nav="records">View recent data →</button></div><div class="record-list">${latest || `<div class="panel-empty"><strong>No records yet</strong>Records will appear here after the collector stores data.</div>`}</div></section>`;
+  const pageHelpers = Object.freeze({
+    esc, number, date, ago, pageHeading, statusBadge, metric, emptyPanel,
+    workersActive, machineStatus, destinationStatus, machineState, destinationState,
+  });
+
+  function machineStatus(current, machine) { return current.status?.machines?.[machine.id] || {}; }
+  function destinationStatus(current, destination) { return current.status?.destinations?.[destination.id] || {}; }
+
+  function machineState(current, machine) {
+    const live = machineStatus(current, machine);
+    return live.state || (live.worker_alive ? "running" : "stopped");
   }
 
-  function renderMachines() {
-    const machines = state.config?.machines || [], running = Boolean(state.status?.running);
-    const active = machines.filter(machine => ["running", "starting"].includes(machineState(machine))).length;
-    const faults = machines.filter(machine => machineState(machine) === "fault").length;
-    const stopped = machines.length - active - faults;
-    const action = `<button class="button button-primary" data-action="add-machine" ${running ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Add machine <span aria-hidden="true">＋</span></button>`;
-    const filterButton = (key, label, count) => `<button type="button" class="machine-filter ${state.machineFilter === key ? "active" : ""}" data-machine-filter="${key}" aria-pressed="${state.machineFilter === key}">${label}<span>${number(count)}</span></button>`;
-    const results = machines.length ? `<div id="machine-results" class="machine-cards">${renderMachineResults(machines)}</div>` : `<div class="machine-empty"><span class="machine-empty-mark" aria-hidden="true">Σ</span><h2>No machines configured</h2><p>Add a Musashi III or IV device to begin setting up collection.</p><button class="button button-primary" data-action="add-machine" ${running ? "disabled" : ""}>Add your first machine</button></div>`;
-    return `${pageHeading("DEVICE MANAGEMENT", "Machines", "Monitor device health and manage collection endpoints.", action)}
-      ${running ? `<div class="machine-lock-notice"><span aria-hidden="true">i</span><span>Acquisition is running. Stop it before changing machine configuration.</span></div>` : ""}
-      <section class="machine-summary" aria-label="Machine status summary"><div><span class="machine-summary-label">Configured</span><strong>${number(machines.length)}</strong></div><div><span class="machine-summary-label">Active</span><strong class="summary-good">${number(active)}</strong></div><div><span class="machine-summary-label">Needs attention</span><strong class="summary-danger">${number(faults)}</strong></div><div><span class="machine-summary-label">Stopped</span><strong>${number(stopped)}</strong></div></section>
-      <section class="machine-browser" aria-label="Machine list"><div class="machine-browser-head"><div><h2>All machines</h2><p>Status updates automatically</p></div><label class="machine-search"><span aria-hidden="true">⌕</span><input id="machine-search" type="search" value="${esc(state.machineQuery)}" placeholder="Search machines" aria-label="Search machines"></label></div><div class="machine-filter-row" role="group" aria-label="Filter machines">${filterButton("all", "All", machines.length)}${filterButton("running", "Active", active)}${filterButton("fault", "Needs attention", faults)}${filterButton("stopped", "Stopped", stopped)}</div></section>
-      ${results}`;
-  }
-
-  function renderMachineResults(machines) {
-    const query = state.machineQuery.trim().toLocaleLowerCase();
-    const filtered = machines.filter(machine => {
-      const currentState = machineState(machine);
-      const matchesFilter = state.machineFilter === "all" || (state.machineFilter === "running" ? ["running", "starting"].includes(currentState) : currentState === state.machineFilter);
-      const endpoint = machine.model === "IV" ? `${machine.host}:${machine.port || 1024}` : machine.port;
-      return matchesFilter && `${machine.id} ${machine.model} ${endpoint}`.toLocaleLowerCase().includes(query);
-    });
-    if (!filtered.length) return `<div class="machine-no-results"><strong>No matching machines</strong><span>Try another search or status filter.</span></div>`;
-    return filtered.map(machineCard).join("");
-  }
-
-  function renderDestinations() {
-    const destinations = state.config?.destinations || [], running = Boolean(state.status?.running), spool = state.status?.spool || {};
-    const active = destinations.filter(destination => ["running", "starting"].includes(destinationState(destination))).length;
-    const faults = destinations.filter(destination => destinationState(destination) === "fault").length;
-    const pendingLanes = destinations.filter(destination => Number(destinationStatus(destination).pending_count || 0) > 0).length;
-    const stopped = destinations.length - active - faults;
-    const pendingRecords = Number(spool.pending || 0);
-    const action = `<button class="button button-primary" data-action="add-destination" ${running ? "disabled title=\"Stop acquisition before editing configuration\"" : ""}>Add destination <span aria-hidden="true">＋</span></button>`;
-    const filterButton = (key, label, count) => `<button type="button" class="destination-filter ${state.destinationFilter === key ? "active" : ""}" data-destination-filter="${key}" aria-pressed="${state.destinationFilter === key}">${label}<span>${number(count)}</span></button>`;
-    const results = destinations.length ? `<div id="destination-results" class="destination-cards">${renderDestinationResults(destinations)}</div>` : `<div class="destination-empty"><span class="destination-empty-mark" aria-hidden="true">↗</span><h2>No delivery targets yet</h2><p>Collected records stay in the local spool until a destination is configured.</p><button class="button button-primary" data-action="add-destination" ${running ? "disabled" : ""}>Add your first destination</button></div>`;
-    return `${pageHeading("DELIVERY TARGETS", "Destinations", "Monitor delivery lanes, queued records, and endpoint health.", action)}
-      ${running ? `<div class="machine-lock-notice"><span aria-hidden="true">i</span><span>Acquisition is running. Stop it before changing destination configuration.</span></div>` : ""}
-      <section class="destination-summary" aria-label="Destination delivery summary"><div><span class="machine-summary-label">Configured</span><strong>${number(destinations.length)}</strong></div><div><span class="machine-summary-label">Active workers</span><strong class="summary-good">${number(active)}</strong></div><div><span class="machine-summary-label">Pending records</span><strong>${number(pendingRecords)}</strong></div><div><span class="machine-summary-label">Needs attention</span><strong class="summary-danger">${number(faults)}</strong></div></section>
-      <section class="destination-retention"><div class="retention-mark" aria-hidden="true">↗</div><div class="retention-copy"><strong>Retained spool history</strong><span>New destinations can backfill only records still in the spool.</span></div><div class="retention-values"><div><span>Oldest retained</span><strong>${esc(date(spool.oldest_retained_at))}</strong></div><div><span>Pruned records</span><strong>${number(spool.pruned_record_count || 0)}</strong></div></div></section>
-      <section class="destination-browser" aria-label="Destination list"><div class="destination-browser-head"><div><h2>Delivery lanes</h2><p>${number(pendingLanes)} ${pendingLanes === 1 ? "lane has" : "lanes have"} queued records</p></div><label class="destination-search"><span aria-hidden="true">⌕</span><input id="destination-search" type="search" value="${esc(state.destinationQuery)}" placeholder="Search destinations" aria-label="Search destinations"></label></div><div class="destination-filter-row" role="group" aria-label="Filter destinations">${filterButton("all", "All", destinations.length)}${filterButton("running", "Active", active)}${filterButton("fault", "Needs attention", faults)}${filterButton("pending", "With pending", pendingLanes)}${filterButton("stopped", "Stopped", stopped)}</div></section>
-      ${results}`;
-  }
-
-  function renderDestinationResults(destinations) {
-    const query = state.destinationQuery.trim().toLocaleLowerCase();
-    const filtered = destinations.filter(destination => {
-      const live = destinationStatus(destination);
-      const currentState = destinationState(destination);
-      const pending = Number(live.pending_count || 0) > 0;
-      const matchesFilter = state.destinationFilter === "all"
-        || (state.destinationFilter === "running" && ["running", "starting"].includes(currentState))
-        || (state.destinationFilter === "fault" && currentState === "fault")
-        || (state.destinationFilter === "pending" && pending)
-        || (state.destinationFilter === "stopped" && currentState === "stopped");
-      const searchable = [destination.id, destination.kind, destination.host, destination.port, destination.topic,
-        destination.url, destination.org, destination.bucket].filter(Boolean).join(" ").toLocaleLowerCase();
-      return matchesFilter && searchable.includes(query);
-    });
-    if (!filtered.length) return `<div class="destination-no-results"><strong>No matching destinations</strong><span>Try another search or delivery filter.</span></div>`;
-    return filtered.map(destinationCard).join("");
-  }
-
-  function renderRecords() {
-    const records = state.records || [], scans = state.scans || [];
-    const active = workersActive();
-    const actions = `<button class="button button-danger" data-action="clear-spool" ${!state.status || active ? 'disabled title="Stop all machine and destination workers before clearing the spool"' : ""}>Clear spool</button><button class="button" data-action="refresh">↻ Refresh</button>`;
-    const recordRows = records.map(record => `<tr><td><div class="device-name">${esc(record.machine_id)}</div><div class="device-meta">${esc(record.model)}</div></td><td>${esc(record.record_type)}<div class="device-meta mono">${esc(record.source)}</div></td><td>${esc(date(record.observed_at))}</td><td><span class="evidence-tag ${record.evidence_type === "simulated" ? "simulated" : ""}">${esc(record.evidence_type || "unknown")}</span></td><td><span class="quality ${record.values?.quality === "error" || record.values?.quality === "partial" ? "partial" : ""}">${esc(record.values?.quality || "—")}</span></td><td class="mono">${esc(record.record_id?.slice(0,8) || "—")}</td></tr>`).join("");
-    const scanRows = scans.map(scan => {const items=scan.items||[];return `<tr><td><div class="device-name">${esc(scan.machine_id)}</div><div class="device-meta mono">${esc(scan.group_name || scan.scan_id?.slice(0,8))}</div></td><td>${scan.completed_at?`<span class="badge good">Complete</span>`:`<span class="badge warning">Partial</span>`}<div class="device-meta">${esc(date(scan.started_at))}</div></td><td><div class="scan-items">${items.map(item=>`<span class="scan-item ${item.outcome === "failed" ? "failed" : item.outcome === "unsupported" ? "unsupported" : item.outcome ? "" : "missing"}" title="${esc(item.outcome || "missing")}">${esc(item.item_key)} · ${esc(item.outcome || "missing")}</span>`).join("") || "—"}</div></td></tr>`}).join("");
-    return `${pageHeading("RECENT ACTIVITY", "Recent data", "Showing up to 10 recent records and 10 scans from the spool.", actions)}${active ? `<div class="machine-lock-notice"><span aria-hidden="true">i</span><span>Stop all machine and destination workers before clearing the spool.</span></div>` : ""}<div class="records-layout"><section class="panel"><div class="panel-head"><div><div class="panel-title">Observation records</div><div class="panel-subtitle">Stored in the spool · This is not a complete archive.</div></div><span class="badge">${number(records.length)} / 10</span></div><div class="table-scroll"><table class="data-table"><thead><tr><th>MACHINE</th><th>TYPE / SOURCE</th><th>OBSERVED AT</th><th>EVIDENCE</th><th>QUALITY</th><th>RECORD ID</th></tr></thead><tbody>${recordRows||`<tr><td colspan="6" class="empty-row">No records yet</td></tr>`}</tbody></table></div></section><section class="panel"><div class="panel-head"><div><div class="panel-title">Inventory scans</div><div class="panel-subtitle">Missing items are never presented as a complete scan.</div></div><span class="badge">${number(scans.length)} / 10</span></div><div class="table-scroll"><table class="data-table"><thead><tr><th>MACHINE / SCAN</th><th>STATE / STARTED</th><th>ITEM COVERAGE</th></tr></thead><tbody>${scanRows||`<tr><td colspan="3" class="empty-row">No scans yet</td></tr>`}</tbody></table></div></section></div>`;
+  function destinationState(current, destination) {
+    const live = destinationStatus(current, destination);
+    if (live.error) return "fault";
+    return live.state || (live.worker_alive ? "running" : "stopped");
   }
 
   function render() {
-    const pages = {overview:renderOverview, machines:renderMachines, destinations:renderDestinations, records:renderRecords};
-    $("#page-content").innerHTML = pages[state.page]();
+    const page = window.MusashiPages?.[state.page];
+    if (!page) {
+      renderError(`The ${pageNames[state.page]} page is unavailable.`);
+      return;
+    }
+    const active = document.activeElement;
+    const focusTarget = active instanceof HTMLElement && active !== document.body
+      ? {
+          id: active.id,
+          action: active.dataset.action,
+          itemId: active.dataset.id,
+          machineFilter: active.dataset.machineFilter,
+          destinationFilter: active.dataset.destinationFilter,
+          selectionStart: typeof active.selectionStart === "number" ? active.selectionStart : null,
+          selectionEnd: typeof active.selectionEnd === "number" ? active.selectionEnd : null,
+        }
+      : null;
+    const renderer = typeof page === "function" ? page : page.render;
+    const markup = renderer({state, helpers: pageHelpers});
+    $("#page-content").innerHTML = `<div class="page-view page-view--${state.page}">${markup}</div>`;
+    if (focusTarget) {
+      const selector = focusTarget.id ? `#${CSS.escape(focusTarget.id)}`
+        : focusTarget.action ? `[data-action="${CSS.escape(focusTarget.action)}"]${focusTarget.itemId ? `[data-id="${CSS.escape(focusTarget.itemId)}"]` : ""}`
+          : focusTarget.machineFilter ? `[data-machine-filter="${CSS.escape(focusTarget.machineFilter)}"]`
+            : focusTarget.destinationFilter ? `[data-destination-filter="${CSS.escape(focusTarget.destinationFilter)}"]`
+              : null;
+      const replacement = selector ? $(selector, $("#page-content")) : null;
+      if (replacement) {
+        replacement.focus({preventScroll:true});
+        if (focusTarget.selectionStart !== null && typeof replacement.setSelectionRange === "function") {
+          replacement.setSelectionRange(focusTarget.selectionStart, focusTarget.selectionEnd);
+        }
+      }
+    }
     $("#crumb-page").textContent = pageNames[state.page];
     $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.page === state.page));
     $("#operator-button").setAttribute("aria-label", "Sign out of operator session");
@@ -301,13 +212,14 @@
     if (state.status?.running) { setNotice("Stop acquisition before editing configuration.", "warning"); return; }
     state.edit = {kind, itemId:item?.id || null, original:item?structuredClone(item):null};
     const isMachine = kind === "machine";
-    const values = item || (isMachine ? {model:"III",poll_interval_seconds:1,inventory_interval_seconds:3600,channel_count:1} : {kind:"mqtt",port:1883,tls:false});
+    const values = item || (isMachine ? {model:"III",poll_interval_seconds:1,inventory_interval_seconds:3600,channel_count:1,simulated:false} : {kind:"mqtt",port:1883,tls:false});
     $("#edit-title").textContent = `${item?"Edit":"Add"} ${isMachine?"machine":"destination"}`;
     $("#edit-kicker").textContent = isMachine ? "MACHINE CONFIGURATION" : "DESTINATION CONFIGURATION";
     const fields = [];
     fields.push(field("id","ID",values.id,{required:true,full:true,hint:"Use letters and numbers, for example iii-line-1."}));
     if (isMachine) {
       fields.push(field("model","Model",values.model,{required:true,options:[["III","Musashi III"],["IV","Musashi IV"]]}));
+      fields.push(field("simulated","Data source",values.simulated ?? false,{required:true,options:[["false","Physical device"],["true","Synthetic simulator"]],full:true,hint:"Choose Synthetic simulator when the machine connects to a service under simulations/."}));
       fields.push(field("poll_interval_seconds","Status poll interval (seconds)",values.poll_interval_seconds ?? 1,{type:"number",required:true}));
       fields.push(field("inventory_interval_seconds","Inventory interval (seconds)",values.inventory_interval_seconds ?? 3600,{type:"number",required:true,full:true}));
       if (values.model === "IV") {
@@ -316,7 +228,7 @@
         fields.push(field("channel_count","Channel count",values.channel_count,{type:"number",required:true}));
         fields.push(field("recipe_count","Recipe count",values.recipe_count,{type:"number",required:true}));
       } else {
-        fields.push(field("port","Serial device",values.port,{required:true,full:true,hint:"Use a path under /dev/serial/by-id/."}));
+        fields.push(field("port","Serial device",values.port,{required:true,full:true,hint:"Use /dev/serial/by-id/... for hardware, a local pseudo-terminal, or socket://musashi-iii:9000 in Docker dev."}));
         fields.push(field("channel_count","Channel count",values.channel_count,{type:"number",required:true,full:true}));
       }
     } else {
@@ -340,7 +252,7 @@
 
   function formValues() {
     const values = {};
-    $$("[data-field]", $("#edit-fields")).forEach(input => { if (input.value !== "") values[input.dataset.field] = input.type === "number" ? Number(input.value) : input.value; });
+    $$("[data-field]", $("#edit-fields")).forEach(input => { if (input.value !== "") values[input.dataset.field] = input.type === "number" ? Number(input.value) : input.dataset.field === "simulated" ? input.value === "true" : input.value; });
     return values;
   }
 
@@ -386,7 +298,7 @@
   }
 
   function clearSpool() {
-    if (workersActive()) { setNotice("Stop all machine and destination workers before clearing the spool.", "warning"); return; }
+    if (workersActive(state)) { setNotice("Stop all machine and destination workers before clearing the spool.", "warning"); return; }
     const spool = state.status?.spool || {};
     $("#confirm-title").textContent = "Clear all spool data?";
     $("#confirm-copy").textContent = `This permanently deletes ${number(spool.records || 0)} local records and ${number(spool.pending || 0)} pending deliveries, plus all scan and fault history. Destination settings remain saved. Data already delivered to external destinations is not deleted.`;
@@ -398,6 +310,7 @@
       try {
         const result = await api("/api/spool", {method:"DELETE"});
         $("#confirm-dialog").close();
+        state.spoolSamples = [];
         await refresh({quiet:true});
         setNotice(result.storage_reclaimed ? "Spool cleared." : "Spool data cleared, but SQLite could not reclaim the file space.", result.storage_reclaimed ? "" : "warning", 7000);
       } catch(error) { $("#confirm-dialog").close(); setNotice(error.message,"error",7000); }
@@ -439,11 +352,11 @@
     if (event.target.id === "machine-search") {
       state.machineQuery = event.target.value;
       const results = $("#machine-results");
-      if (results) results.innerHTML = renderMachineResults(state.config?.machines || []);
+      if (results) results.innerHTML = window.MusashiPages.machines.renderResults({state, helpers: pageHelpers}, state.config?.machines || []);
     } else if (event.target.id === "destination-search") {
       state.destinationQuery = event.target.value;
       const results = $("#destination-results");
-      if (results) results.innerHTML = renderDestinationResults(state.config?.destinations || []);
+      if (results) results.innerHTML = window.MusashiPages.destinations.renderResults({state, helpers: pageHelpers}, state.config?.destinations || []);
     }
   });
 

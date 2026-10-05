@@ -30,7 +30,7 @@ class IIDecodeTests(unittest.TestCase):
         d01 = next(item for item in fixture["uploads"] if item["code"] == "D01")
         decoded = parse_upload(d01["code"], d01["payload"])
 
-        example_path = Path(__file__).parents[1] / "examples" / "musashi_II_example" / "read_musashi.py"
+        example_path = Path(__file__).parents[1] / "examples" / "musashi_III_example" / "read_musashi.py"
         tree = ast.parse(example_path.read_text())
         regex_assignment = next(
             node for node in tree.body

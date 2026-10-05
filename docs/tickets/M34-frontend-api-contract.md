@@ -26,9 +26,9 @@ Completion: unverified
 
 | Route | Required response or request | UI use and current state |
 | --- | --- | --- |
-| `POST /api/auth/login` | `{username, password}`; success returns `{authenticated: true, csrf_token}` and sets session cookie | Sign-in; new contract, implementation pending. |
-| `GET /api/auth/session` | `{authenticated: false}` or `{authenticated: true, csrf_token}` | Restore a valid browser session after reload; new contract, implementation pending. |
-| `POST /api/auth/logout` | Requires session cookie and `X-CSRF-Token`; success returns 204 and clears the session | Explicit sign-out; new contract, implementation pending. |
+| `POST /api/auth/login` | `{username, password}`; success returns `{authenticated: true, csrf_token}` and sets session cookie | Sign-in; implemented by M36, M34 contract acceptance remains open. |
+| `GET /api/auth/session` | `{authenticated: false}` or `{authenticated: true, csrf_token}` | Restore a valid browser session after reload; implemented by M36, M34 contract acceptance remains open. |
+| `POST /api/auth/logout` | Requires session cookie and `X-CSRF-Token`; success returns 204 and clears the session | Explicit sign-out; implemented by M36, M34 contract acceptance remains open. |
 | `GET /health` | `{process, acquisition, fault}` | Process indicator; implemented. This is not a substitute for protected status. |
 | `GET /api/config` | Version 1 document with `revision`, `machines[]`, `destinations[]`, redacted `secret_ref` | Edit forms; implemented in part, with M21 acceptance open. |
 | `PUT /api/config` | Send the full document with its last-read integer `revision`; success returns redacted saved document with new revision | Save while stopped; 409 requires reloading before retry, 422 returns field-keyed `errors`; implemented in part. |

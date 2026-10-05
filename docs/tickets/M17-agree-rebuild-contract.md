@@ -29,19 +29,21 @@ Completion: unverified
 
 ## Historical audit coverage
 
-The replacement map is: B01 → M22; B02 → M36 primary, with M20/M21/M31/M34 regression checks; B03 → M20, M26, M27; B04 → M26 pending-only reroute under ADR 0002; B05 → M25; B06 → M30; B07 → M28; B08 → M27; B09 → M29; B10 → M32. Confirm this map during the contract review and preserve a regression check for each finding.
+The replacement map is: B01 → M22; B02 → M36 primary, with M20/M21/M31/M34 regression checks; B03 → M26 primary for spool limits and failure propagation, with M20 record-size and M27 collection-stop/status regression checks; B04 → M26 pending-only reroute under ADR 0002; B05 → M25; B06 → M30; B07 → M28; B08 → M27; B09 → M29; B10 → M32. Confirm this map during the contract review and preserve a regression check for each finding.
 
 ## Acceptance checks
 
 - [ ] A reviewed architecture decision or spec records the coverage matrix, numeric limits or provisional ranges, ownership of each limit, and the assumptions requiring site confirmation.
 - [ ] The security boundary explicitly requires authenticated management, restricted network access, secret redaction, and read-only protocol enforcement.
 - [ ] The release gate maps audit B01–B10 to replacement tickets and requires evidence for each before declaring deployable.
-- [ ] The contract states collector/spool/forwarder inputs and outputs, destination-free collection, retention-limited backfill, pending-only reroute, and complete-scan semantics without relying on current code behavior.
+- [ ] The contract states collector/spool/forwarder inputs and outputs, destination-free collection, backfill of records still retained, deletion after every assigned destination acknowledges, pending-only reroute, and complete-scan semantics without relying on current code behavior.
 - [ ] No proposed behavior is described as hardware-verified without a named device, firmware, capture, and date.
 
 **Verification:** Review the decision against both manuals, the retained II example, every audit finding, and the new ticket dependency graph. Record unresolved choices as explicit blockers, not guessed defaults.
 
 ## Comments
+
+- 2026-10-05: Product decision: the spool is a delivery buffer, not a long-term archive. Remove each record body after all assigned destinations confirm delivery; leave unassigned and pending records eligible for the documented backfill/retention rules.
 
 - 2026-09-28: Working contract: [rebuild-contract.md](../specs/rebuild-contract.md). Limits are provisional; manual cross-check and site sizing/review are still open. Synthetic checks do not establish hardware acceptance.
 - 2026-09-28: Added the per-family coverage/evidence matrix, source review record, and one-primary-ticket regression ownership for B01–B10 in the working contract. Maintainer acceptance remains required before this ticket can be verified; site measurements remain M33 inputs.

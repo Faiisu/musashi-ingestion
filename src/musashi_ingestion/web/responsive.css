@@ -3,11 +3,6 @@
     opacity:.35
   }
 }
-@keyframes shimmer{
-  to{
-    background-position:-135% 0
-  }
-}
 @media(max-width:1100px){
   .sidebar{
     width:218px
@@ -89,9 +84,6 @@
   .operator-avatar{
     font-size:8px
   }
-  .chevron{
-    display:none
-  }
   .page-wrap{
     padding:25px 15px 16px
   }
@@ -153,9 +145,6 @@
   }
   .records-layout{
     gap:10px
-  }
-  .toolbar{
-    align-items:flex-start
   }
   .form-grid{
     grid-template-columns:1fr

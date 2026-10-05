@@ -75,6 +75,30 @@ class Spool:
         """)
         self.db.execute("INSERT OR IGNORE INTO spool_meta VALUES('installation_id',?)", (str(uuid.uuid4()),))
         self.db.execute("INSERT OR IGNORE INTO spool_meta VALUES('last_point_ns','0')")
+        self.db.execute("CREATE TEMP TABLE IF NOT EXISTS delivered_cleanup(record_id TEXT PRIMARY KEY)")
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            self._delete_fully_delivered_records()
+            self.db.execute("COMMIT")
+        except Exception:
+            if self.db.in_transaction:
+                self.db.execute("ROLLBACK")
+            raise
+
+    def _delete_fully_delivered_records(self, record_id=None):
+        """Remove acknowledged record bodies without discarding scan outcomes."""
+        self.db.execute("DELETE FROM delivered_cleanup")
+        scope = "WHERE d.record_id=?" if record_id is not None else ""
+        params = (record_id,) if record_id is not None else ()
+        self.db.execute(f"""INSERT INTO delivered_cleanup
+          SELECT d.record_id FROM deliveries d JOIN records r USING(record_id)
+          {scope} GROUP BY d.record_id
+          HAVING SUM(CASE WHEN d.acknowledged_at IS NULL THEN 1 ELSE 0 END)=0""", params)
+        self.db.execute("""UPDATE scan_items SET record_id=NULL
+          WHERE record_id IN (SELECT record_id FROM delivered_cleanup)""")
+        self.db.execute("DELETE FROM deliveries WHERE record_id IN (SELECT record_id FROM delivered_cleanup)")
+        self.db.execute("DELETE FROM records WHERE record_id IN (SELECT record_id FROM delivered_cleanup)")
+        self.db.execute("DELETE FROM delivered_cleanup")
 
     @staticmethod
     def _now():
@@ -264,8 +288,17 @@ class Spool:
           WHERE d.target_id=? AND d.acknowledged_at IS NULL ORDER BY r.rowid LIMIT ?""", (target_id, limit))]
 
     def ack(self, target_id: str, record_id: str):
-        self.db.execute("UPDATE deliveries SET acknowledged_at=? WHERE target_id=? AND record_id=? AND acknowledged_at IS NULL",
-                        (self._now(), target_id, record_id))
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            updated = self.db.execute("UPDATE deliveries SET acknowledged_at=? WHERE target_id=? AND record_id=? AND acknowledged_at IS NULL",
+                                      (self._now(), target_id, record_id)).rowcount
+            if updated:
+                self._delete_fully_delivered_records(record_id)
+            self.db.execute("COMMIT")
+        except Exception:
+            if self.db.in_transaction:
+                self.db.execute("ROLLBACK")
+            raise
 
     def begin_scan(self, machine_id: str, group_name: str, scan_id=None, expected_items=()):
         scan_id = scan_id or str(uuid.uuid4())

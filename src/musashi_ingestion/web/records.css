@@ -1,0 +1,153 @@
+/* Records-specific styles. Shared primitives belong in components.css. */
+.page-view--records .records-layout{
+  grid-template-columns:minmax(0,1fr);
+  gap:14px
+}
+.page-view--records .panel-head{
+  align-items:flex-start
+}
+.page-view--records .panel-title{
+  margin:0;
+  color:#28362e;
+  font-size:12px;
+  text-wrap:balance
+}
+.page-view--records .panel-subtitle{
+  max-width:58ch;
+  line-height:1.5
+}
+.page-view--records .records-table-scroll{
+  max-width:100%;
+  overscroll-behavior-x:contain;
+  scrollbar-gutter:stable
+}
+.page-view--records .records-table-scroll:focus-visible{
+  outline:2px solid var(--accent);
+  outline-offset:-2px
+}
+.page-view--records .records-table{
+  min-width:760px;
+  white-space:normal
+}
+.page-view--records .records-table th{
+  color:#69766e;
+  font-size:9px;
+  letter-spacing:.04em;
+  white-space:nowrap
+}
+.page-view--records .records-table td{
+  vertical-align:top;
+  line-height:1.45
+}
+.page-view--records .records-table tbody tr:hover{
+  background:#f8fbf9
+}
+.page-view--records .records-scan-table{
+  min-width:680px
+}
+.page-view--records .records-scan-table th:first-child{
+  width:22%
+}
+.page-view--records .records-scan-table th:nth-child(2){
+  width:19%
+}
+.page-view--records .records-scan-table th:last-child{
+  width:59%
+}
+.page-view--records .records-scan-counts{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px 12px;
+  color:#536159;
+  font-size:10px;
+  font-variant-numeric:tabular-nums
+}
+.page-view--records .records-scan-counts span{
+  white-space:nowrap
+}
+.page-view--records .records-scan-counts span:nth-child(3){
+  color:#a64038
+}
+.page-view--records .records-scan-counts span:nth-child(4){
+  color:#8b6419
+}
+.page-view--records .records-scan-items{
+  display:flex;
+  flex-wrap:wrap;
+  gap:5px;
+  margin:8px 0 0;
+  padding:0;
+  list-style:none
+}
+.page-view--records .records-scan-item{
+  display:inline-flex;
+  align-items:center;
+  gap:5px;
+  max-width:100%;
+  padding:3px 6px;
+  border:1px solid #e5eae6;
+  border-radius:5px;
+  background:#f7f9f7;
+  color:#58665e;
+  font-size:9px
+}
+.page-view--records .records-scan-item code{
+  overflow-wrap:anywhere;
+  color:#48564d;
+  font:inherit
+}
+.page-view--records .records-scan-item span{
+  color:#748078
+}
+.page-view--records .records-scan-item.failed{
+  border-color:#f1d8d5;
+  background:#fff5f4;
+  color:#a64038
+}
+.page-view--records .records-scan-item.failed span{
+  color:inherit
+}
+.page-view--records .records-scan-item.unsupported{
+  background:#f4f2ed;
+  color:#7d735b
+}
+.page-view--records .records-scan-more,
+.page-view--records .records-no-items,
+.page-view--records .records-scan-note{
+  color:#77827b;
+  font-size:9px
+}
+.page-view--records .records-scan-note{
+  margin-top:7px;
+  color:#8b6419
+}
+.page-view--records .record-id{
+  color:#536159;
+  font:9px ui-monospace,SFMono-Regular,Menlo,monospace;
+  font-variant-numeric:tabular-nums
+}
+.page-view--records .records-sr-only{
+  position:absolute;
+  width:1px;
+  height:1px;
+  padding:0;
+  margin:-1px;
+  overflow:hidden;
+  clip:rect(0,0,0,0);
+  white-space:nowrap;
+  border:0
+}
+@media(max-width:600px){
+  .page-view--records .panel-head{
+    gap:8px;
+    padding:13px 14px
+  }
+  .page-view--records .records-table th,
+  .page-view--records .records-table td{
+    padding-right:12px;
+    padding-left:12px
+  }
+  .page-view--records .records-scan-table{
+    min-width:640px
+  }
+}

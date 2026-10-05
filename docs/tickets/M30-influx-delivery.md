@@ -33,7 +33,7 @@ Completion: unverified
 - [ ] Unsupported or oversized payloads fail configuration or remain pending with explicit fault, never silently drop content.
 - [ ] The final encoded line stays within the configured 16 MiB minimum for the worst accepted record or an oversize write stays pending with a visible fault.
 - [ ] Outage/restart preserves pending rows and does not block MQTT/PostgreSQL.
-- [ ] A new bucket receives retained history within the visible window; changing this destination reroutes only its pending rows while preserving stored point identity for replay.
+- [ ] A new bucket receives records still present in the spool within the visible window; fully delivered records have already been deleted. Changing this destination reroutes only its pending rows while preserving stored point identity for replay.
 
 **Verification:** Use a disposable InfluxDB bucket; compare queried data with fixtures, replay IDs, and same-timestamp cases.
 

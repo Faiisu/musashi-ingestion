@@ -1,8 +1,10 @@
 # Read-only device data catalog
 
+For parsed output variables, spool records, and destination representations, see [machine output formats](machine-output-formats.md).
+
 The application must collect every documented read-only data value that its configured machine can return, except the IV screen image. It must never change settings, switch channels, start dispensing, clear data, or run a diagnostic action. An HTTP `GET` is not automatically safe: the IV manual uses GET for many control commands.
 
-The connected serial dispenser is identified by the operator as III; its live reads use the `UL` upload protocol documented in the scanned Model II manual. The [II reader](../../examples/musashi_II_example/read_musashi.py) previously retrieved real values using `UL ... D01`; other upload codes are documented in the scanned manual and have since been exercised in a limited live cycle. IV status reads have succeeded; inventory and site acceptance remain incomplete. Synthetic fixtures must say so.
+The connected serial dispenser is identified by the operator as III; its live reads use the `UL` upload protocol documented in the scanned Model II manual. The [retained III example reader](../../examples/musashi_III_example/read_musashi.py) previously retrieved real values using `UL ... D01`; other upload codes are documented in the scanned manual and have since been exercised in a limited live cycle. IV status reads have succeeded; inventory and site acceptance remain incomplete. Synthetic fixtures must say so.
 
 ## Model II: RS-232C uploads
 
@@ -24,7 +26,7 @@ The scanned [II manual](../../examples/Instruction%20Manual%20Super%20%CE%A3CMII
 
 The scanned manual's printed pages 89–92 show `DA01`–`DA09` layouts. The [II read contract](../specs/model-ii-upload-contract.md) gives the field/unit map and links the synthetic fixtures. `DA06CHxxx` reports the displayed channel. The worker reads it before and after current-channel `D01`–`D04`; a changed or unconfirmed channel marks those records incomplete. `D02`–`D09` decoders are manual-derived and still require firmware confirmation.
 
-The II example imports `database_handler`, which is missing here. Reuse its proven serial read behavior, not its database dependency. Save the operator-selected serial path, preferably `/dev/serial/by-id/...`; do not auto-select the first `/dev/ttyUSB*` device when several machines are connected.
+The II example imports `database_handler`, which is missing here. Reuse its proven serial read behavior, not its database dependency. Save the operator-selected serial path, preferably `/dev/serial/by-id/...`; do not auto-select the first `/dev/ttyUSB*` device when several machines are connected. For local acquisition simulation, the III adapter also accepts an explicit pseudo-terminal path (`/dev/pts/<n>` on Linux or `/dev/ttysNNN` on macOS) printed by [`simulations/iii`](../../simulations/iii/README.md), and its fixed `socket://musashi-iii:9000` endpoint for Docker Compose dev. These are software test endpoints, not hardware evidence.
 
 ## Model IV: HTTP read endpoints
 

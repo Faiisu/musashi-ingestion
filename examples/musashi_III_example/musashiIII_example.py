@@ -1,5 +1,5 @@
 # app.py
-# Musashi II Web Control Panel (Port 8082)
+# Musashi III Web Control Panel (Port 8082)
 # See: docs/architecture/context.md
 # English comments only
 
@@ -57,10 +57,10 @@ def options_preflight(path=''):
 # State files to persist process metadata across restarts
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 CONFIG_PATH = os.path.join(BASE_DIR, 'config.json')
-PID_PATH = os.path.join(BASE_DIR, '.musashi_ii_process.pid')
-MODE_PATH = os.path.join(BASE_DIR, '.musashi_ii_process.mode')
-DESIRED_STATE_PATH = os.path.join(BASE_DIR, '.musashi_ii_desired_state.json')
-LOG_PATH = os.path.join(BASE_DIR, 'musashi_ii_pipeline.log')
+PID_PATH = os.path.join(BASE_DIR, '.musashi_iii_process.pid')
+MODE_PATH = os.path.join(BASE_DIR, '.musashi_iii_process.mode')
+DESIRED_STATE_PATH = os.path.join(BASE_DIR, '.musashi_iii_desired_state.json')
+LOG_PATH = os.path.join(BASE_DIR, 'musashi_iii_pipeline.log')
 
 # Global synchronization and monitoring variables
 tail_thread = None
@@ -472,7 +472,7 @@ def tail_log_file():
     Handles log file truncation on worker restarts.
     """
     global last_stats
-    print("[SYSTEM] Musashi II Log tailing thread started.")
+    print("[SYSTEM] Musashi III Log tailing thread started.")
     
     while not os.path.exists(LOG_PATH) and not stop_tail_event.is_set():
         time.sleep(0.2)
@@ -523,7 +523,7 @@ def tail_log_file():
     except Exception as e:
         print(f"[ERROR] Error tailing log file: {e}")
     finally:
-        print("[SYSTEM] Musashi II Log tailing thread finished.")
+        print("[SYSTEM] Musashi III Log tailing thread finished.")
 
 def start_tailing():
     """Starts a new background tailing thread if not active, synchronized by tail_lock."""
@@ -639,7 +639,7 @@ def get_status():
     mode_val = mode or 'mockup'
     is_running = pid is not None
     return jsonify({
-        'service_name': 'MUSASHI II',
+        'service_name': 'MUSASHI III',
         'port': 8082,
         'is_running': is_running,
         'status': 'running' if is_running else 'stopped',
@@ -698,7 +698,7 @@ def test_db():
         bucket = db_cfg.get('influx_bucket', 'musashi_telemetry')
 
         target_url = f"{url}/health"
-        headers = {"User-Agent": "MusashiII-TestClient"}
+        headers = {"User-Agent": "MusashiIII-TestClient"}
         if token:
             headers["Authorization"] = f"Token {token}"
 
@@ -784,12 +784,12 @@ def handle_connect():
 
 @socketio.on('start_musashi')
 def handle_start(data=None):
-    """Spawns Musashi II ingestion process in background."""
+    """Spawns Musashi III ingestion process in background."""
     with process_lifecycle_lock:
         data = data or {}
         pid, mode = get_running_process()
         if pid is not None:
-            emit('log_update', {'log': '[SYSTEM] Warning: Musashi II ingestion process is already running.'})
+            emit('log_update', {'log': '[SYSTEM] Warning: Musashi III ingestion process is already running.'})
             return
             
         run_mode = data.get('mode', 'mockup')
@@ -804,7 +804,7 @@ def handle_start(data=None):
         try:
             # Clear/truncate old log file session
             with open(LOG_PATH, 'w', encoding='utf-8') as f:
-                f.write(f"[SYSTEM] Log session initialized for MUSASHI II mode={run_mode.upper()}\n")
+                f.write(f"[SYSTEM] Log session initialized for MUSASHI III mode={run_mode.upper()}\n")
                 
             log_file = open(LOG_PATH, 'a', encoding='utf-8')
             
@@ -834,13 +834,13 @@ def handle_start(data=None):
             port = read_config().get('serial', {}).get('port', 'N/A')
             # Update sockets immediately
             socketio.emit('status_change', {'is_running': True, 'mode': run_mode, 'port': port})
-            socketio.emit('log_update', {'log': f'[SYSTEM] Spawning Musashi II process (PID: {proc.pid}) mode={run_mode.upper()}'})
+            socketio.emit('log_update', {'log': f'[SYSTEM] Spawning Musashi III process (PID: {proc.pid}) mode={run_mode.upper()}'})
             
             # Start log tailer thread
             start_tailing()
             
         except Exception as e:
-            socketio.emit('log_update', {'log': f'[SYSTEM] Failed to spawn Musashi II process: {e}'})
+            socketio.emit('log_update', {'log': f'[SYSTEM] Failed to spawn Musashi III process: {e}'})
 
 @socketio.on('stop_musashi')
 def handle_stop():
@@ -862,7 +862,7 @@ def handle_stop():
         current_state = read_desired_state()
         target_mode = current_state.get('mode', 'mockup')
         write_desired_state(False, target_mode)
-        socketio.emit('log_update', {'log': f'[SYSTEM] Terminating Musashi II process (PID: {pid})...'})
+        socketio.emit('log_update', {'log': f'[SYSTEM] Terminating Musashi III process (PID: {pid})...'})
         
         # 1. Stop log tailing thread cleanly
         stop_tail_event.set()
@@ -885,13 +885,13 @@ def handle_stop():
             except OSError: pass
             
         socketio.emit('status_change', {'is_running': False, 'mode': target_mode, 'port': port})
-        socketio.emit('log_update', {'log': '[SYSTEM] Musashi II Ingestion process terminated.'})
+        socketio.emit('log_update', {'log': '[SYSTEM] Musashi III Ingestion process terminated.'})
 
 def init_application():
     """Initial recovery check and auto-start on Web GUI startup."""
     pid, mode = get_running_process()
     if pid is not None:
-        print(f"[SYSTEM] Detected active Musashi II process running (PID: {pid}). Re-attaching...")
+        print(f"[SYSTEM] Detected active Musashi III process running (PID: {pid}). Re-attaching...")
         start_tailing()
     else:
         cfg = read_config()
@@ -902,7 +902,7 @@ def init_application():
         
         if auto_start_enabled or is_desired_running:
             target_mode = startup_cfg.get('auto_start_mode', cfg.get('AUTO_START_MODE')) or desired_state.get('mode', 'mockup')
-            print(f"[SYSTEM] Startup config auto_start_on_startup is enabled. Auto-starting Musashi II ingestion in MODE={target_mode.upper()}...")
+            print(f"[SYSTEM] Startup config auto_start_on_startup is enabled. Auto-starting Musashi III ingestion in MODE={target_mode.upper()}...")
             handle_start({'mode': target_mode})
         else:
             print("[SYSTEM] Startup config auto_start_on_startup is disabled. Awaiting manual start trigger.")

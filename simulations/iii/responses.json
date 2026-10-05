@@ -1,0 +1,14 @@
+{
+  "evidence": "synthetic; editable simulator data, not a device capture",
+  "payloads": {
+    "D01": "DA01P0987T00654V0321M2NSIGMA     ",
+    "D02": "DA02S2A2",
+    "D03": "DA03A+123D085V-0031",
+    "D04": "DA04L050C006",
+    "D05": "DA05R050",
+    "D06": "DA06CH{channel:03d}",
+    "D07": "DA07CT00001234",
+    "D08": "DA08VR0100SP5",
+    "D09": "DA09SY0110010"
+  }
+}

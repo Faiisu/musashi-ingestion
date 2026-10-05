@@ -31,7 +31,7 @@ Completion: unverified
 - [ ] Matrix lists each source family, expected behavior, observed result, evidence path, and unresolved issue; no family is skipped by the test setup.
 - [ ] All audit failures B01–B10 have a passing regression or explicit blocked decision.
 - [ ] Partial inventories list missing items; committed records survive restart; full spool is a visible acquisition fault.
-- [ ] The matrix includes destination-free collection, retention-limited backfill to each of the three destinations, pending-only reroute of one lane, and stable IDs under uncertain acknowledgment.
+- [ ] The matrix includes destination-free collection, backfill only of records still in the spool, deletion after all assigned destinations acknowledge, pending-only reroute of one lane, and stable IDs under uncertain acknowledgment.
 - [ ] Session/CSRF regression rows pass and M35 supplies evidence for the English operator console on a separate approved network device.
 - [ ] Report labels evidence as simulated and does not claim hardware compatibility.
 

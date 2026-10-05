@@ -32,7 +32,7 @@ Completion: unverified
 - [ ] Lost PUBACK, restart, and broker outage leave correct pending rows while other destinations continue.
 - [ ] Acknowledgment occurs only after PUBACK for every required chunk, and duplicate deliveries retain stable IDs.
 - [ ] TLS/credential errors are visible without logging secrets.
-- [ ] A newly configured broker receives retained history within the visible backfill window; changing this broker reroutes only its pending assignments and keeps stable record IDs.
+- [ ] A newly configured broker receives records still present in the spool within the visible backfill window; fully delivered records have already been deleted. Changing this broker reroutes only its pending assignments and keeps stable record IDs.
 
 **Verification:** Use a disposable broker and inspect received UTF-8 byte lengths, chunk sets, spool rows, and retry traces.
 

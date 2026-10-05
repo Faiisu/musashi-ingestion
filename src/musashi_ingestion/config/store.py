@@ -7,6 +7,8 @@ import os
 import tempfile
 from pathlib import Path
 
+from musashi_ingestion.devices.ii import is_supported_port
+
 
 REDACTED = "********"
 
@@ -79,6 +81,8 @@ def validate_config(document: dict) -> None:
                 model = entry.get("model")
                 if model not in ("III", "IV"):
                     errors[p + ".model"] = "must be III or IV"
+                if "simulated" in entry and type(entry["simulated"]) is not bool:
+                    errors[p + ".simulated"] = "must be true or false"
                 interval = entry.get("poll_interval_seconds", 1)
                 if isinstance(interval, bool) or not isinstance(interval, (int, float)) or not math.isfinite(interval) or interval < 1:
                     errors[p + ".poll_interval_seconds"] = "must be finite and at least 1"
@@ -87,8 +91,8 @@ def validate_config(document: dict) -> None:
                     errors[p + ".inventory_interval_seconds"] = "must be finite and at least 60"
                 if model == "III":
                     port = entry.get("port")
-                    if not isinstance(port, str) or not port.startswith("/dev/serial/by-id/"):
-                        errors[p + ".port"] = "select a /dev/serial/by-id device"
+                    if not is_supported_port(port):
+                        errors[p + ".port"] = "select a serial device, pseudo-terminal or simulator socket URL"
                     count = entry.get("channel_count")
                     if type(count) is not int or not 1 <= count <= 100:
                         errors[p + ".channel_count"] = "evidenced count 1–100 required"

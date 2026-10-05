@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "musashi-ingestion"
 version = "0.1.0"
-description = "Read-only Musashi II and IV ingestion backend"
+description = "Read-only Musashi III and IV ingestion backend"
 requires-python = ">=3.11"
 dependencies = [
   "pyserial>=3.5,<4",

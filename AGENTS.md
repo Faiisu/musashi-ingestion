@@ -26,4 +26,4 @@ This is a single-context repo. Read [docs/agents/domain.md](docs/agents/domain.m
 
 ## Documentation work
 
-Use the `docs-as-code` skill for project docs and the `writing-for-agents` skill when editing agent instructions. Keep `docs/development-plan.md` as navigation; each ticket owns its `Status:` and `Completion:` fields.
+Use the `project-documentation` skill for project docs and the `writing-for-agents` skill when editing agent instructions. Keep `docs/development-plan.md` as navigation; each ticket owns its `Status:` and `Completion:` fields.
