@@ -2,6 +2,7 @@
 
 import json
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -37,6 +38,41 @@ class FakeII:
 
 
 class RuntimeTests(unittest.TestCase):
+    def test_machine_worker_keeps_reading_when_spool_quota_fills(self):
+        with tempfile.TemporaryDirectory() as directory:
+            store = ConfigStore(Path(directory) / "config.json")
+            store.save(0, {"version": 1, "machines": [
+                {"id": "ii-1", "model": "III", "port": "/dev/serial/by-id/synthetic",
+                 "channel_count": 1, "poll_interval_seconds": 1}], "destinations": []})
+            spool = Spool(Path(directory) / "spool.sqlite3", max_record_bytes=50_000,
+                          max_spool_bytes=400_000)
+
+            class LargeFakeII(FakeII):
+                def upload(self, code, channel=1):
+                    response = super().upload(code, channel)
+                    return IIResponse(response.code, response.channel, response.payload, b"x" * 10_000)
+
+            supervisor = Supervisor(store, spool, ii_factory=LargeFakeII)
+            try:
+                supervisor.start()
+                deadline = time.monotonic() + 5
+                while time.monotonic() < deadline:
+                    status = supervisor.status()
+                    machine = status["machines"]["ii-1"]
+                    if (status["spool"]["evicted_record_count"] > 0 and machine["last_success"]
+                            or machine["state"] == "fault"):
+                        break
+                    time.sleep(0.02)
+                self.assertGreater(status["spool"]["evicted_record_count"], 0)
+                self.assertIsNotNone(machine["last_success"])
+                self.assertEqual(machine["state"], "running")
+                self.assertTrue(machine["worker_alive"])
+                self.assertTrue(status["running"])
+                self.assertIsNone(status["acquisition_fault"])
+            finally:
+                supervisor.stop()
+                spool.close()
+
     def test_current_channel_changes_mark_all_affected_reads_incomplete(self):
         with tempfile.TemporaryDirectory() as directory:
             store = ConfigStore(Path(directory) / "config.json")

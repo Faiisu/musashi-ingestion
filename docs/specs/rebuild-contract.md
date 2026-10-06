@@ -75,9 +75,9 @@ These values are implementation guardrails, not measured hardware capacities. Co
 | Fresh inventory target | Within configured refresh interval after a complete scan | Partial scans remain visible; confirm interval and scan duration. |
 | Delivery lag target | Under 60 s while destinations are available | Measure during M32 and M33; outage age is reported separately. |
 
-Sizing rule: `required bytes = machines × (status bytes × status reads per day + inventory bytes per day) × outage days × destination copies + SQLite/WAL margin`. The 1 GiB value cannot prove 24 hours until real response sizes and destination selections are known. Reject or fault on capacity exhaustion and report the oldest pending age, queue count, and disk use.
+Sizing rule: `required bytes = machines × (status bytes × status reads per day + inventory bytes per day) × outage days × destination copies + SQLite/WAL margin`. The 1 GiB value cannot prove 24 hours until real response sizes and destination selections are known. On spool quota exhaustion, evict oldest committed records to continue collection and report eviction count, oldest pending age, queue count, and disk use. Actual disk/SQLite write failures remain faults.
 
-The [agent execution contract](agent-execution-contract.md) fixes the software retention policy: after every assigned destination acknowledges a record, its body and delivery rows are deleted. Unassigned history remains available for later destination registration and is eligible for quota-pressure pruning; pending destination rows and incomplete scans remain protected. A newly configured destination backfills only records still retained. This is a delivery buffer, not an archive: already delivered rows cannot be recovered from the spool after a destination loses data. When protected history consumes the quota, acquisition faults visibly instead of silently deleting it. The site's required history and archival period remain M33 inputs.
+The [agent execution contract](agent-execution-contract.md) fixes the software retention policy: after every assigned destination acknowledges a record, its body and delivery rows are deleted. Unassigned history remains available for later destination registration until quota eviction. Under quota pressure, records are evicted in oldest commit order, including pending records; their delivery rows are removed and scan record links are cleared while scan outcomes and incomplete scan metadata remain available. A newly configured destination backfills only records still retained. This is a delivery buffer, not an archive: already delivered rows cannot be recovered from the spool after a destination loses data. Quota eviction keeps acquisition running and reports a persistent `evicted_record_count`; discarded pending data will not be delivered later. Actual SQLite write failures or a new record that cannot fit after eviction still fault acquisition. The site's required history and archival period remain M33 inputs.
 
 ## Security and delivery
 
@@ -93,7 +93,7 @@ M32 must provide simulated source-to-destination and failure evidence for every 
 | --- | --- | --- |
 | B01 | M22 — first disconnected II read terminates within timeout | — |
 | B02 | M36 — invalid or missing session denies management access; explicitly blank login credentials prevent startup | M20, M21, M31, and M34 auth/recovery checks |
-| B03 | M26 — protected/full spool failure remains visible and pending rows are preserved | M20 commit bounds; M27 worker-stop behavior |
+| B03 | M26 — full quota evicts oldest records and continues acquisition; actual write failures remain visible | M20 commit bounds; M27 worker-stop behavior |
 | B04 | M26 — endpoint change reroutes only that lane's pending assignments atomically | — |
 | B05 | M25 — IV ranges, sparse `data/all`, fallback, and expected-item outcomes | — |
 | B06 | M30 — complete nested body and same-time distinct IDs round-trip | — |

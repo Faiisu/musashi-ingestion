@@ -87,22 +87,58 @@ class CoreTests(unittest.TestCase):
             self.assertEqual(line_for_record(reopened.list_records(limit=2)[1]), replay_line)
             reopened.close()
 
-    def test_quota_prunes_delivered_history_but_faults_on_pending(self):
+    def test_quota_evicts_oldest_pending_records_and_accepts_new_data(self):
         with tempfile.TemporaryDirectory() as directory:
             spool = Spool(Path(directory) / "spool.sqlite3", max_record_bytes=2048,
-                          max_spool_bytes=2_000_000)
-            for counter in range(1500):
+                          max_spool_bytes=400_000)
+            for counter in range(500):
                 spool.commit(make_record("ii", "III", "status", "D05",
                                          {"counter": counter, "padding": "x" * 200}))
-            self.assertLess(spool.stats()["records"], 1500)
+            self.assertLess(spool.stats()["records"], 500)
             self.assertIsNone(spool.stats()["fault"])
             target = spool.register_target("mqtt", {"id": "synthetic"})
-            with self.assertRaises(SpoolError):
-                for counter in range(5000):
-                    spool.commit(make_record("ii", "III", "status", "D05",
-                                             {"counter": counter, "padding": "x" * 500}), [target])
+            for counter in range(500, 1000):
+                spool.commit(make_record("ii", "III", "status", "D05",
+                                         {"counter": counter, "padding": "x" * 500}), [target])
+                self.assertLessEqual(spool.stats()["disk_bytes"], spool.max_spool_bytes)
             self.assertGreater(spool.stats()["pending"], 0)
-            self.assertIsNotNone(spool.stats()["fault"])
+            pending = spool.pending(target, limit=2000)
+            counters = [r["values"]["counter"] for r in pending]
+            self.assertEqual(counters, list(range(counters[0], 1000)))
+            self.assertGreater(counters[0], 500)
+            self.assertIsNone(spool.stats()["fault"])
+            evicted = spool.stats()["evicted_record_count"]
+            self.assertEqual(evicted + spool.stats()["records"], 1000)
+            spool.close()
+            spool = Spool(Path(directory) / "spool.sqlite3")
+            self.assertEqual(spool.stats()["evicted_record_count"], evicted)
+            self.assertEqual([r["values"]["counter"] for r in spool.pending(target, 2000)], counters)
+            spool.close()
+
+    def test_quota_eviction_cleans_all_lanes_and_preserves_scan_outcomes(self):
+        with tempfile.TemporaryDirectory() as directory:
+            spool = Spool(Path(directory) / "spool.sqlite3", max_record_bytes=20_000,
+                          max_spool_bytes=300_000)
+            spool.db.execute("PRAGMA foreign_keys=ON")
+            first = spool.register_target("mqtt", {"host": "first"})
+            second = spool.register_target("mqtt", {"host": "second"})
+            old = make_record("ii", "III", "inventory", "D01", {"padding": "x" * 10_000})
+            spool.commit(old, [first, second])
+            scan = spool.begin_scan("ii", "inventory", expected_items=["D01:1", "D02:1"])
+            spool.record_scan_item(scan, "D01:1", old["record_id"])
+            for counter in range(50):
+                spool.commit(make_record("ii", "III", "status", "D05",
+                                         {"counter": counter, "padding": "x" * 10_000}), [first, second])
+            self.assertEqual(spool.scan_items(scan)[0],
+                             {"item_key": "D01:1", "record_id": None, "outcome": "ok"})
+            self.assertEqual(spool.scan_items(scan)[1]["outcome"], None)
+            self.assertEqual(len(spool.incomplete_scans()), 1)
+            self.assertEqual(spool.pending(first), spool.pending(second))
+            self.assertNotIn(old["record_id"], [r["record_id"] for r in spool.pending(first)])
+            # A sender may confirm an already fetched record after eviction.
+            spool.ack(first, old["record_id"])
+            self.assertEqual(spool.db.execute("PRAGMA foreign_key_check").fetchall(), [])
+            self.assertIsNone(spool.stats()["fault"])
             spool.close()
 
     def test_clear_spool_removes_local_history_and_preserves_point_identity(self):

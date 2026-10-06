@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+  const {t, html, msg} = window.MusashiI18n;
 
   window.MusashiPages ||= {};
 
@@ -9,29 +10,29 @@
     let amount = value, unit = 0;
     while (amount >= 1024 && unit < units.length - 1) { amount /= 1024; unit += 1; }
     const digits = unit === 0 ? (Number.isInteger(amount) ? 0 : 1) : amount >= 100 ? 0 : amount >= 10 ? 1 : 2;
-    return `${new Intl.NumberFormat("en-US", {maximumFractionDigits:digits}).format(amount)} ${units[unit]}`;
+    return msg`${new Intl.NumberFormat(window.MusashiI18n.locale, {maximumFractionDigits:digits}).format(amount)} ${units[unit]}`;
   };
 
   const growthSummary = samples => {
-    if (samples.length < 2) return "Collecting 60-second baseline";
+    if (samples.length < 2) return t("Collecting 60-second baseline");
     const latest = samples[samples.length - 1];
     const baseline = samples.slice(0, -1).reverse().find(sample => {
       const age = latest.at - sample.at;
       return age >= 60_000 && age <= 90_000;
     });
-    if (!baseline) return "Collecting 60-second baseline";
+    if (!baseline) return t("Collecting 60-second baseline");
     const minutes = (latest.at - baseline.at) / 60_000;
     const formatRate = (delta, format) => {
       const rate = delta / minutes;
       const sign = rate > 0 ? "+" : rate < 0 ? "−" : "";
-      return `${sign}${format(Math.abs(rate))}`;
+      return msg`${sign}${format(Math.abs(rate))}`;
     };
     const bytes = formatRate(latest.diskBytes - baseline.diskBytes, humanBytes);
     const records = formatRate(latest.records - baseline.records, value =>
-      new Intl.NumberFormat("en-US", {maximumFractionDigits:1}).format(value));
+      new Intl.NumberFormat(window.MusashiI18n.locale, {maximumFractionDigits:1}).format(value));
     const pending = formatRate(latest.pending - baseline.pending, value =>
-      new Intl.NumberFormat("en-US", {maximumFractionDigits:1}).format(value));
-    return `Growth (~1 min): ${bytes}/min · ${records} records/min · pending ${pending}/min`;
+      new Intl.NumberFormat(window.MusashiI18n.locale, {maximumFractionDigits:1}).format(value));
+    return msg`Growth (~1 min): ${bytes}/min · ${records} records/min · pending ${pending}/min`;
   };
 
   window.MusashiPages.overview = ({state, helpers}) => {
@@ -44,8 +45,8 @@
     const running = Boolean(status.running);
     const fault = status.acquisition_fault || spool.fault;
     const actions = running
-      ? '<button class="button button-danger" type="button" data-action="stop">Stop acquisition</button>'
-      : '<button class="button button-primary" type="button" data-action="start">Start acquisition <span aria-hidden="true">→</span></button>';
+      ? html('<button class="button button-danger" type="button" data-action="stop">Stop acquisition</button>')
+      : html('<button class="button button-primary" type="button" data-action="start">Start acquisition <span aria-hidden="true">→</span></button>');
     const pendingCount = Number(spool.pending || 0);
     const spoolStorage = humanBytes(Number(spool.disk_bytes || 0));
     const walStorage = humanBytes(Number(spool.wal_bytes || 0));
@@ -60,29 +61,29 @@
       ? machines.map(machine => {
         const live = machineStatus(state, machine);
         const endpoint = machine.model === "IV"
-          ? `${machine.host}:${machine.port || 1024}`
+          ? msg`${machine.host}:${machine.port || 1024}`
           : machine.port;
-        const seen = live.last_success ? ago(live.last_success) : "No successful read yet";
+        const seen = live.last_success ? ago(live.last_success) : t("No successful read yet");
         const health = live.error
-          ? `<span class="badge danger">${esc(live.error)}</span>`
-          : `<span class="mono">${number(live.skipped_polls || 0)} skipped polls</span>`;
+          ? msg`<span class="badge danger">${esc(live.error)}</span>`
+          : msg`<span class="mono">${number(live.skipped_polls || 0)} skipped polls</span>`;
 
-        return `<tr>
+        return msg`<tr>
           <td><div class="device-cell"><span class="device-avatar">${esc(machine.model)}</span><div>
             <div class="device-name">${esc(machine.id)}</div>
-            <div class="device-meta">${machine.model === "III" ? "Serial interface" : "Network interface"}</div>
+            <div class="device-meta">${machine.model === "III" ? t("Serial interface") : t("Network interface")}</div>
           </div></div></td>
-          <td class="mono">${esc(endpoint || "Not configured")}</td>
+          <td class="mono">${esc(endpoint || t("Not configured"))}</td>
           <td>${statusBadge(live)}</td>
           <td>${esc(seen)}</td>
           <td>${health}</td>
         </tr>`;
       }).join("")
-      : '<tr><td colspan="5" class="empty-row">No machines configured</td></tr>';
+      : html('<tr><td colspan="5" class="empty-row">No machines configured</td></tr>');
 
     const recentRecords = (state.records || []).slice(0, 5).map(record => {
       const simulated = record.evidence_type === "simulated";
-      return `<div class="record-row" role="listitem">
+      return msg`<div class="record-row" role="listitem">
         <i class="record-dot ${simulated ? "simulated" : ""}" aria-hidden="true"></i>
         <div>
           <div class="record-title">${esc(record.machine_id)} <span class="mono">${esc(record.source)}</span></div>
@@ -101,41 +102,41 @@
         const done = items.filter(item => ["ok", "unsupported"].includes(item.outcome)).length;
         const percent = items.length ? Math.round(done / items.length * 100) : 0;
         const stateText = scan
-          ? `${scan.completed_at ? "Complete" : "Partial"} · ${date(scan.started_at)} · ${number(done)} of ${number(items.length)} resolved`
-          : "No scan yet";
+          ? msg`${scan.completed_at ? t("Complete") : t("Partial")} · ${date(scan.started_at)} · ${number(done)} of ${number(items.length)} resolved`
+          : t("No scan yet");
 
-        return `<div class="coverage-item">
+        return msg`<div class="coverage-item">
           <div class="coverage-row">
             <span class="coverage-label">${esc(machine.id)}</span>
-            <div class="coverage-track" role="progressbar" aria-label="Resolved inventory items for ${esc(machine.id)}" aria-valuetext="${items.length ? `${done} of ${items.length} resolved` : "No scan items"}" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100">
+            <div class="coverage-track" role="progressbar" aria-label="Resolved inventory items for ${esc(machine.id)}" aria-valuetext="${items.length ? msg`${done} of ${items.length} resolved` : t("No scan items")}" aria-valuenow="${percent}" aria-valuemin="0" aria-valuemax="100">
               <div class="coverage-fill" style="width:${percent}%"></div>
             </div>
-            <span class="coverage-value">${items.length ? `${percent}%` : "—"}</span>
+            <span class="coverage-value">${items.length ? msg`${percent}%` : "—"}</span>
           </div>
           <div class="panel-subtitle coverage-meta">${esc(stateText)}</div>
         </div>`;
       }).join("")
-      : emptyPanel("No coverage data", "Add a machine to see scan coverage.");
+      : emptyPanel(t("No coverage data"), t("Add a machine to see scan coverage."));
 
-    return `${pageHeading("SYSTEM OVERVIEW", "System overview", "Current ingestion and delivery status.", actions)}
+    return msg`${pageHeading(t("SYSTEM OVERVIEW"), t("System overview"), t("Current ingestion and delivery status."), actions)}
       <section class="status-strip" aria-label="Acquisition status">
         <div class="status-copy">
           <span class="status-icon ${fault ? "warn" : running ? "good" : ""}" aria-hidden="true">${fault ? "!" : running ? "↗" : "Ⅱ"}</span>
           <div>
-            <div class="status-title">${fault ? "System fault detected" : running ? "Acquisition is running" : "Acquisition is stopped"}</div>
-            <div class="status-subtitle">${fault ? esc(fault) : running ? `Last successful read ${esc(ago(latestSuccess))}` : "Configure a machine, then start acquisition when ready."}</div>
+            <div class="status-title">${fault ? t("System fault detected") : running ? t("Acquisition is running") : t("Acquisition is stopped")}</div>
+            <div class="status-subtitle">${fault ? esc(fault) : running ? msg`Last successful read ${esc(ago(latestSuccess))}` : t("Configure a machine, then start acquisition when ready.")}</div>
           </div>
         </div>
         <div class="status-right">
           ${statusBadge({state: fault ? "fault" : running ? "running" : "stopped"})}
-          <span class="badge">${state.health?.process === "ok" ? "SERVICE ONLINE" : "CHECK SERVICE"}</span>
+          <span class="badge">${state.health?.process === "ok" ? t("SERVICE ONLINE") : t("CHECK SERVICE")}</span>
         </div>
       </section>
       <div class="metric-grid">
-        ${metric("Machines", number(machines.length), "configured", `${number(machines.filter(machine => machineStatus(state, machine).worker_alive).length)} workers active`, "M")}
-        ${metric("Destinations", number(destinations.length), "configured", `${number(destinations.filter(item => destinationStatus(state, item).worker_alive).length)} delivery workers`, "↗")}
-        ${metric("Pending delivery", number(pendingCount), "deliveries", pendingCount ? `Oldest record ${ago(spool.oldest_pending_at)}` : "No pending deliveries", "…")}
-        ${metric("Spool", number(spool.records || 0), "records", `SQLite files ${spoolStorage} · WAL ${walStorage} · ${spoolGrowth}`, "▤")}
+        ${metric(t("Machines"), number(machines.length), t("configured"), msg`${number(machines.filter(machine => machineStatus(state, machine).worker_alive).length)} workers active`, "M")}
+        ${metric(t("Destinations"), number(destinations.length), t("configured"), msg`${number(destinations.filter(item => destinationStatus(state, item).worker_alive).length)} delivery workers`, "↗")}
+        ${metric(t("Pending delivery"), number(pendingCount), t("deliveries"), pendingCount ? msg`Oldest record ${ago(spool.oldest_pending_at)}` : t("No pending deliveries"), "…")}
+        ${metric(t("Spool"), number(spool.records || 0), t("records"), msg`SQLite files ${spoolStorage} · WAL ${walStorage} · ${spoolGrowth}`, "▤")}
       </div>
       <div class="section-grid">
         <section class="panel">
@@ -161,7 +162,7 @@
           <div><div class="panel-title">Recent records</div><div class="panel-subtitle">Latest 5 records in the spool · simulated data is highlighted</div></div>
           <button class="text-link" type="button" data-nav="records">View recent data <span aria-hidden="true">→</span></button>
         </div>
-        <div class="record-list" role="list" aria-label="Latest records">${recentRecords || '<div class="panel-empty" role="listitem"><strong>No records yet</strong>Records will appear here after the collector stores data.</div>'}</div>
+        <div class="record-list" role="list" aria-label="Latest records">${recentRecords || html('<div class="panel-empty" role="listitem"><strong>No records yet</strong>Records will appear here after the collector stores data.</div>')}</div>
       </section>`;
   };
 })();

@@ -1,5 +1,6 @@
 (() => {
   "use strict";
+  const {t, html, msg} = window.MusashiI18n;
 
   window.MusashiPages ||= {};
 
@@ -7,29 +8,29 @@
     const {state, helpers: h} = context;
     const live = h.machineStatus(state, machine);
     const endpoint = machine.model === "IV"
-      ? `${machine.host}:${machine.port || 1024}`
+      ? msg`${machine.host}:${machine.port || 1024}`
       : machine.port;
     const currentState = h.machineState(state, machine);
     const locked = Boolean(state.status?.running);
     const name = machine.model === "III" ? "Musashi Super ΣCM III" : "Musashi Super ΣCM IV";
     const lastRead = live.error
-      ? "Attention required"
-      : live.last_success ? `Last read ${h.ago(live.last_success)}` : "Waiting for first read";
+      ? t("Attention required")
+      : live.last_success ? msg`Last read ${h.ago(live.last_success)}` : t("Waiting for first read");
 
-    return `<article class="machine-card" data-machine-state="${h.esc(currentState)}">
+    return msg`<article class="machine-card" data-machine-state="${h.esc(currentState)}">
       <div class="machine-card-top">
         <span class="machine-model" aria-hidden="true">Σ${h.esc(machine.model)}</span>
         <div class="machine-card-title"><h2>${h.esc(machine.id)}</h2><p>${name}</p></div>
       <div class="machine-card-actions">
-          <button class="small-button" data-action="edit-machine" data-id="${h.esc(machine.id)}" aria-label="Edit machine ${h.esc(machine.id)}" ${locked ? 'disabled title="Stop acquisition before editing configuration"' : ""}>Edit</button>
-          <button class="small-button danger" data-action="remove-machine" data-id="${h.esc(machine.id)}" aria-label="Remove machine ${h.esc(machine.id)}" ${locked ? 'disabled title="Stop acquisition before removing a machine"' : ""}>Remove</button>
+          <button class="small-button" data-action="edit-machine" data-id="${h.esc(machine.id)}" aria-label="Edit machine ${h.esc(machine.id)}" ${locked ? html('disabled title="Stop acquisition before editing configuration"') : ""}>Edit</button>
+          <button class="small-button danger" data-action="remove-machine" data-id="${h.esc(machine.id)}" aria-label="Remove machine ${h.esc(machine.id)}" ${locked ? html('disabled title="Stop acquisition before removing a machine"') : ""}>Remove</button>
         </div>
       </div>
       <div class="machine-state-line">${h.statusBadge(live)}<span>${lastRead}</span></div>
-      ${live.error ? `<div class="machine-error" role="status">${h.esc(live.error)}</div>` : ""}
+      ${live.error ? msg`<div class="machine-error" role="status">${h.esc(live.error)}</div>` : ""}
       <div class="machine-endpoint">
-        <span class="detail-label">${machine.model === "IV" ? "NETWORK ENDPOINT" : "SERIAL DEVICE"}</span>
-        <strong class="mono">${h.esc(endpoint || "Not configured")}</strong>
+        <span class="detail-label">${machine.model === "IV" ? t("NETWORK ENDPOINT") : t("SERIAL DEVICE")}</span>
+        <strong class="mono">${h.esc(endpoint || t("Not configured"))}</strong>
       </div>
       <dl class="machine-specs">
         <div><dt>Poll interval</dt><dd>${h.esc(machine.poll_interval_seconds ?? 1)} sec</dd></div>
@@ -49,13 +50,13 @@
         || (state.machineFilter === "running" && ["running", "starting"].includes(currentState))
         || currentState === state.machineFilter;
       const endpoint = machine.model === "IV"
-        ? `${machine.host}:${machine.port || 1024}`
+        ? msg`${machine.host}:${machine.port || 1024}`
         : machine.port;
-      return matchesFilter && `${machine.id} ${machine.model} ${endpoint} ${currentState}`.toLocaleLowerCase().includes(query);
+      return matchesFilter && msg`${machine.id} ${machine.model} ${endpoint} ${currentState}`.toLocaleLowerCase().includes(query);
     });
 
     if (!filtered.length) {
-      return '<div class="machine-no-results"><strong>No matching machines</strong><span>Try another search or status filter.</span></div>';
+      return html('<div class="machine-no-results"><strong>No matching machines</strong><span>Try another search or status filter.</span></div>');
     }
     return filtered.map(machine => machineCard(machine, context)).join("");
   }
@@ -68,14 +69,14 @@
       const active = states.filter(value => ["running", "starting"].includes(value)).length;
       const faults = states.filter(value => value === "fault").length;
       const stopped = machines.length - active - faults;
-      const action = `<button class="button button-primary" data-action="add-machine" ${running ? 'disabled title="Stop acquisition before editing machine configuration"' : ""}>Add machine <span aria-hidden="true">＋</span></button>`;
-      const filterButton = (key, label, count) => `<button type="button" class="machine-filter ${state.machineFilter === key ? "active" : ""}" data-machine-filter="${key}" aria-pressed="${state.machineFilter === key}">${label}<span>${h.number(count)}</span></button>`;
+      const action = msg`<button class="button button-primary" data-action="add-machine" ${running ? html('disabled title="Stop acquisition before editing machine configuration"') : ""}>Add machine <span aria-hidden="true">＋</span></button>`;
+      const filterButton = (key, label, count) => msg`<button type="button" class="machine-filter ${state.machineFilter === key ? "active" : ""}" data-machine-filter="${key}" aria-pressed="${state.machineFilter === key}">${label}<span>${h.number(count)}</span></button>`;
       const results = machines.length
-        ? `<div id="machine-results" class="machine-cards">${renderResults({state, helpers: h}, machines)}</div>`
-        : `<div class="machine-empty"><span class="machine-empty-mark" aria-hidden="true">Σ</span><h2>No machines configured</h2><p>Add a Musashi III or IV device to begin setting up collection.</p>${action}</div>`;
+        ? msg`<div id="machine-results" class="machine-cards">${renderResults({state, helpers: h}, machines)}</div>`
+        : msg`<div class="machine-empty"><span class="machine-empty-mark" aria-hidden="true">Σ</span><h2>No machines configured</h2><p>Add a Musashi III or IV device to begin setting up collection.</p>${action}</div>`;
 
-      return `${h.pageHeading("DEVICE MANAGEMENT", "Machines", "Monitor device health and manage collection endpoints.", action)}
-        ${running ? '<div class="machine-lock-notice"><span aria-hidden="true">i</span><span>Acquisition is running. Stop it before changing machine configuration.</span></div>' : ""}
+      return msg`${h.pageHeading(t("DEVICE MANAGEMENT"), t("Machines"), t("Monitor device health and manage collection endpoints."), action)}
+        ${running ? html('<div class="machine-lock-notice"><span aria-hidden="true">i</span><span>Acquisition is running. Stop it before changing machine configuration.</span></div>') : ""}
         <section class="machine-summary" aria-label="Machine status summary">
           <div><span class="machine-summary-label">Configured</span><strong>${h.number(machines.length)}</strong></div>
           <div><span class="machine-summary-label">Active</span><strong class="summary-good">${h.number(active)}</strong></div>
@@ -88,10 +89,10 @@
             <label class="machine-search"><span aria-hidden="true">⌕</span><input id="machine-search" type="search" value="${h.esc(state.machineQuery)}" placeholder="Search name, model, endpoint, or status" aria-label="Search machines by name, model, endpoint, or status"></label>
           </div>
           <div class="machine-filter-row" role="group" aria-label="Filter machines">
-            ${filterButton("all", "All", machines.length)}
-            ${filterButton("running", "Active", active)}
-            ${filterButton("fault", "Needs attention", faults)}
-            ${filterButton("stopped", "Stopped", stopped)}
+            ${filterButton("all", t("All"), machines.length)}
+            ${filterButton("running", t("Active"), active)}
+            ${filterButton("fault", t("Needs attention"), faults)}
+            ${filterButton("stopped", t("Stopped"), stopped)}
           </div>
         </section>
         ${results}`;

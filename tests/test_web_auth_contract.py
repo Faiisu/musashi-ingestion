@@ -36,9 +36,9 @@ class WebAuthContractTests(unittest.TestCase):
         self.assertIn('error.retryableLoginFailure = path === "/api/auth/login"', self.app)
         self.assertIn('const retryable=failure.retryableLoginFailure===true', self.app)
         self.assertIn('if (retryable) $("#password-input").value=password', self.app)
-        self.assertIn('submit.childNodes[0].textContent=retryable?"Retry sign in ":"Sign in "', self.app)
+        self.assertIn('submit.childNodes[0].textContent=retryable?t("Retry sign in")+" ":t("Sign in")+" "', self.app)
         self.assertIn('$(retryable?"#password-input":"#username-input").focus()', self.app)
-        self.assertIn('if (path === "/api/auth/login") throw new Error("Invalid username or password.")', self.app)
+        self.assertIn('if (path === "/api/auth/login") throw new Error(t("Invalid username or password."))', self.app)
 
     def test_login_form_is_labeled_and_uses_password_manager_autofill(self):
         self.assertIn('for="username-input">Username</label>', self.html)
@@ -46,7 +46,9 @@ class WebAuthContractTests(unittest.TestCase):
         self.assertIn('for="password-input">Password</label>', self.html)
         self.assertIn('autocomplete="current-password"', self.html)
         self.assertIn('id="login-error" class="field-error" role="alert"', self.html)
-        self.assertNotRegex(self.html, r"[\u0e00-\u0e7f]")
+        self.assertIn('data-language-select aria-label="Language"', self.html)
+        self.assertIn('<option value="en" lang="en">English</option>', self.html)
+        self.assertIn('<option value="th" lang="th">ไทย</option>', self.html)
 
 
 if __name__ == "__main__":

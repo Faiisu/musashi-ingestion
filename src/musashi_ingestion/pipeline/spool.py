@@ -75,6 +75,7 @@ class Spool:
         """)
         self.db.execute("INSERT OR IGNORE INTO spool_meta VALUES('installation_id',?)", (str(uuid.uuid4()),))
         self.db.execute("INSERT OR IGNORE INTO spool_meta VALUES('last_point_ns','0')")
+        self.db.execute("INSERT OR IGNORE INTO spool_meta VALUES('evicted_record_count','0')")
         self.db.execute("CREATE TEMP TABLE IF NOT EXISTS delivered_cleanup(record_id TEXT PRIMARY KEY)")
         self.db.execute("BEGIN IMMEDIATE")
         try:
@@ -165,20 +166,23 @@ class Spool:
             pass
         raise SpoolError(detail) from exc
 
+    def _prune_completed_scans(self):
+        old_scans = [row[0] for row in self.db.execute("""SELECT scan_id FROM scans s
+          WHERE completed_at IS NOT NULL AND scan_id NOT IN
+            (SELECT scan_id FROM scans latest WHERE latest.machine_id=s.machine_id
+             AND latest.completed_at IS NOT NULL ORDER BY latest.completed_at DESC LIMIT 1)""")]
+        for scan_id in old_scans:
+            for table in ("scan_outcomes", "scan_expected", "scan_items"):
+                self.db.execute(f"DELETE FROM {table} WHERE scan_id=?", (scan_id,))
+            self.db.execute("DELETE FROM scans WHERE scan_id=?", (scan_id,))
+
     def prune_acknowledged(self, keep_latest=100):
         """Reclaim delivered or unassigned history; never remove pending records."""
         if type(keep_latest) is not int or keep_latest < 0:
             raise ValueError("invalid retention count")
         self.db.execute("BEGIN IMMEDIATE")
         try:
-            old_scans = [row[0] for row in self.db.execute("""SELECT scan_id FROM scans s
-              WHERE completed_at IS NOT NULL AND scan_id NOT IN
-                (SELECT scan_id FROM scans latest WHERE latest.machine_id=s.machine_id
-                 AND latest.completed_at IS NOT NULL ORDER BY latest.completed_at DESC LIMIT 1)""")]
-            for scan_id in old_scans:
-                for table in ("scan_outcomes", "scan_expected", "scan_items"):
-                    self.db.execute(f"DELETE FROM {table} WHERE scan_id=?", (scan_id,))
-                self.db.execute("DELETE FROM scans WHERE scan_id=?", (scan_id,))
+            self._prune_completed_scans()
             self.db.execute("""DELETE FROM records WHERE record_id IN (
               SELECT r.record_id FROM records r
               WHERE NOT EXISTS (SELECT 1 FROM deliveries d WHERE d.record_id=r.record_id AND d.acknowledged_at IS NULL)
@@ -222,6 +226,45 @@ class Spool:
             counts["storage_reclaimed"] = False
         return counts
 
+    def _make_room(self, margin):
+        """Evict oldest committed records, including pending ones, under quota pressure."""
+        self.db.execute("BEGIN IMMEDIATE")
+        try:
+            self._prune_completed_scans()
+            self.db.execute("COMMIT")
+        except Exception:
+            if self.db.in_transaction:
+                self.db.execute("ROLLBACK")
+            raise
+        # WAL growth alone need not discard observations.
+        self.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+        self.db.execute("VACUUM")
+        while self._disk_bytes() + margin > self.max_spool_bytes:
+            excess = self._disk_bytes() + margin - self.max_spool_bytes
+            oldest = []
+            reclaimed = 0
+            for row in self.db.execute("SELECT record_id,bytes FROM records ORDER BY rowid LIMIT 1000"):
+                oldest.append((row[0],))
+                reclaimed += row[1]
+                if reclaimed >= excess:
+                    break
+            if not oldest:
+                self._write_failure("spool quota exceeded: metadata and new record do not fit")
+            self.db.execute("BEGIN IMMEDIATE")
+            try:
+                self.db.executemany("UPDATE scan_items SET record_id=NULL WHERE record_id=?", oldest)
+                self.db.executemany("DELETE FROM deliveries WHERE record_id=?", oldest)
+                self.db.executemany("DELETE FROM records WHERE record_id=?", oldest)
+                self.db.execute("""UPDATE spool_meta SET value=CAST(value AS INTEGER)+?
+                  WHERE key='evicted_record_count'""", (len(oldest),))
+                self.db.execute("COMMIT")
+            except Exception:
+                if self.db.in_transaction:
+                    self.db.execute("ROLLBACK")
+                raise
+            self.db.execute("PRAGMA wal_checkpoint(TRUNCATE)")
+            self.db.execute("VACUUM")
+
     def commit(self, record: dict, targets=()):
         required = ("record_id", "machine_id", "model", "record_type", "source", "observed_at", "values", "evidence_type")
         if (not isinstance(record, dict) or record.get("version") != 1
@@ -253,9 +296,9 @@ class Spool:
         margin = max(65536, len(body) * 4)
         if self._disk_bytes() + margin > self.max_spool_bytes:
             try:
-                self.prune_acknowledged()
+                self._make_room(margin)
             except sqlite3.Error as exc:
-                self._write_failure("spool pruning failed", exc)
+                self._write_failure("spool eviction failed", exc)
         if self._disk_bytes() + margin > self.max_spool_bytes:
             self._write_failure("spool quota exceeded")
         try:
@@ -364,7 +407,8 @@ class Spool:
            WHERE d.acknowledged_at IS NULL) oldest_pending_at,
           (SELECT count(*) FROM scans WHERE completed_at IS NULL) incomplete_scans,
           (SELECT max(started_at) FROM scans) last_scan_at,
-          (SELECT detail FROM faults WHERE cleared_at IS NULL ORDER BY id DESC LIMIT 1) fault""").fetchone()
+          (SELECT detail FROM faults WHERE cleared_at IS NULL ORDER BY id DESC LIMIT 1) fault,
+          (SELECT CAST(value AS INTEGER) FROM spool_meta WHERE key='evicted_record_count') evicted_record_count""").fetchone()
         return dict(row) | {"disk_bytes": self._disk_bytes(), "wal_bytes": Path(str(self.path) + "-wal").stat().st_size if Path(str(self.path) + "-wal").exists() else 0}
 
 

@@ -1,0 +1,52 @@
+.page-view--config { --config-body:#526057; }
+.config-doc-intro { display:flex; align-items:center; justify-content:space-between; gap:24px; background:var(--accent-wash); border:1px solid #ccdfd3; border-radius:12px; padding:20px 24px; margin-bottom:28px; }
+.config-doc-intro strong { font-size:13px; color:var(--accent-dark); }
+.config-doc-intro p { font-size:12px; color:var(--config-body); line-height:1.8; margin:6px 0 0; max-width:72ch; }
+.config-doc-intro nav { display:flex; flex-wrap:wrap; gap:12px; flex:none; }
+.config-doc-intro a { font-size:12px; font-weight:700; color:var(--accent-dark); padding:6px 0; }
+.config-layout { display:grid; grid-template-columns:200px minmax(0,1fr); gap:30px; align-items:start; }
+.config-contents { position:sticky; top:90px; max-height:calc(100dvh - 115px); overflow:auto; }
+.config-contents nav { display:grid; gap:3px; }
+.config-nav-label { padding:0 12px 12px; font-size:9px; font-weight:800; letter-spacing:1.2px; color:var(--muted); }
+.config-contents a { font-size:12px; color:var(--config-body); padding:9px 12px; border:1px solid transparent; border-radius:8px; }
+.config-contents a:hover, .config-contents a:focus-visible { background:#fff; color:var(--accent-dark); border-color:var(--line); }
+.config-main { min-width:0; }
+.config-section { scroll-margin-top:90px; margin-bottom:36px; }
+.config-section-heading { margin-bottom:16px; }
+.config-section-heading h2 { font-size:20px; letter-spacing:-.4px; margin:0 0 6px; }
+.config-section-heading p { color:var(--config-body); font-size:12px; line-height:1.8; margin:0; max-width:80ch; }
+.config-reference-list { border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; background:#fff; }
+.config-parameter { padding:22px 24px; border-bottom:1px solid var(--line); }
+.config-parameter:last-child { border-bottom:0; }
+.config-parameter header { display:flex; align-items:baseline; justify-content:space-between; gap:14px; }
+.config-parameter h3 { margin:0; min-width:0; font:600 14px ui-monospace,SFMono-Regular,monospace; color:var(--accent-dark); overflow-wrap:anywhere; }
+.config-requirement { font-size:10px; color:var(--config-body); background:var(--soft); border:1px solid var(--line); padding:3px 8px; border-radius:5px; white-space:nowrap; }
+.config-requirement.is-required { background:var(--accent-wash); border-color:#ccdfd3; color:var(--accent-dark); }
+.config-description { margin:12px 0 18px; font-size:13px; line-height:1.85; color:var(--config-body); max-width:80ch; }
+.config-parameter-meta { display:grid; grid-template-columns:1fr 1fr 1.5fr; gap:16px; margin:0; padding-top:14px; border-top:1px solid var(--line); }
+.config-parameter-meta div { min-width:0; }
+.config-parameter-meta dt { font-size:10px; color:var(--muted); margin-bottom:5px; font-weight:700; }
+.config-parameter-meta dd { margin:0; font-size:12px; overflow-wrap:anywhere; }
+.config-parameter-meta code { font:11px ui-monospace,SFMono-Regular,monospace; }
+.config-secret-formats, .config-example { border:1px solid var(--line); border-radius:var(--radius); background:#fff; padding:22px 24px; margin-bottom:14px; }
+.config-secret-formats article + article { padding-top:16px; border-top:1px solid var(--line); margin-top:20px; }
+.config-secret-formats h3, .config-example h3 { font-size:14px; margin:0; }
+.config-secret-formats p, .config-example p, .config-doc-note { font-size:12px; line-height:1.85; color:var(--config-body); }
+.page-view--config pre { margin:12px 0; background:#f2f6f3; border:1px solid var(--line); border-left:3px solid #88b49a; border-radius:7px; padding:16px; overflow:auto; font:12px/1.8 ui-monospace,SFMono-Regular,monospace; }
+.field-hint { font-size:12px; line-height:1.7; color:#526057; }
+@media(max-width:1100px) {
+  .config-layout { grid-template-columns:1fr; gap:24px; }
+  .config-contents { position:static; max-height:none; }
+  .config-contents nav { display:flex; flex-wrap:wrap; gap:6px; }
+  .config-contents a { background:#fff; border-color:var(--line); padding:7px 10px; }
+  .config-nav-label { display:none; }
+  .config-doc-intro { align-items:flex-start; flex-direction:column; gap:10px; }
+}
+@media(max-width:720px) {
+  .primary-nav { grid-template-columns:repeat(5,minmax(0,1fr)); }
+  .config-section { scroll-margin-top:75px; }
+  .config-doc-intro, .config-parameter, .config-example, .config-secret-formats { padding:18px 16px; }
+  .config-parameter header { flex-wrap:wrap; gap:8px; }
+  .config-parameter-meta { grid-template-columns:1fr 1fr; gap:14px; }
+  .config-parameter-meta div:last-child { grid-column:1/-1; }
+}

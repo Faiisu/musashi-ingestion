@@ -1,0 +1,64 @@
+/* Keep language controls the same height as adjacent header actions. */
+.language-control,
+.dialog .language-control {
+  display:inline-flex;
+  align-items:center;
+  flex:none;
+  gap:0;
+  height:34px;
+  margin:0;
+  padding:0 0 0 10px;
+  border:1px solid var(--line);
+  border-radius:9px;
+  background:#fff;
+  color:#526057;
+  font-weight:400;
+}
+.language-icon { display:block; width:16px; height:16px; flex:none; pointer-events:none; }
+.language-control select,
+.dialog .language-control select {
+  width:auto;
+  min-width:0;
+  height:32px;
+  margin:0;
+  padding:0 8px 0 6px;
+  border:0;
+  border-radius:0 8px 8px 0;
+  background:transparent;
+  color:var(--ink);
+  font-size:12px;
+  line-height:normal;
+  cursor:pointer;
+}
+.language-control:focus-within { border-color:#74a98a; outline:3px solid rgb(22 119 84 / .18); outline-offset:2px; }
+.language-control select:focus,
+.dialog .language-control select:focus { outline:none; }
+.dialog-heading-row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
+.dialog-tools { display:flex; align-items:center; flex:none; gap:8px; }
+.edit-dialog .dialog-top { gap:14px; margin-bottom:12px; }
+.edit-dialog .dialog-top > div:first-child { min-width:0; }
+.topbar { gap:16px; }
+.topbar .breadcrumb { min-width:0; }
+.topbar .breadcrumb strong { overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.topbar-actions { flex:none; }
+.topbar .operator-button { min-height:34px; }
+html[lang="th"] .nav-link { font-size:13px; }
+html[lang="th"] .page-heading p, html[lang="th"] .config-description { line-height:1.85; }
+@media(max-width:1000px) {
+  .topbar .refresh-state #last-updated { display:none; }
+}
+@media(max-width:720px) {
+  .topbar-actions { gap:8px; }
+  .topbar .language-control { padding-left:8px; }
+  .topbar .language-control select { padding-right:5px; font-size:11px; }
+  html[lang="th"] .nav-link { font-size:10px; }
+}
+@media(max-width:480px) {
+  .topbar { gap:10px; padding-inline:12px; }
+  .topbar .breadcrumb > span { display:none; }
+  .topbar .operator-button { font-size:0; gap:0; padding:0; width:28px; }
+  .topbar .operator-avatar { font-size:9px; }
+  .topbar .refresh-state { display:none; }
+  .edit-dialog .dialog-top { flex-wrap:wrap; }
+  .edit-dialog .dialog-tools { margin-left:auto; }
+}

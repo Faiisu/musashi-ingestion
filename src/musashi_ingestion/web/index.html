@@ -12,10 +12,15 @@
     <link rel="stylesheet" href="/ui/machines.css">
     <link rel="stylesheet" href="/ui/destinations.css">
     <link rel="stylesheet" href="/ui/records.css">
+    <link rel="stylesheet" href="/ui/language.css">
+    <script src="/ui/translations_th.js" defer></script>
+    <script src="/ui/i18n.js" defer></script>
     <script src="/ui/page_overview.js" defer></script>
     <script src="/ui/page_machines.js" defer></script>
     <script src="/ui/page_destinations.js" defer></script>
     <script src="/ui/page_records.js" defer></script>
+    <link rel="stylesheet" href="/ui/config.css">
+    <script src="/ui/page_config.js" defer></script>
     <script src="/ui/app.js" defer></script>
   </head>
   <body>
@@ -31,6 +36,7 @@
           <a href="#machines" data-page="machines" class="nav-link"><span class="nav-icon icon-machine" aria-hidden="true"></span><span>Machines</span><span class="nav-count" id="machine-count">0</span></a>
           <a href="#destinations" data-page="destinations" class="nav-link"><span class="nav-icon icon-destination" aria-hidden="true"></span><span>Destinations</span><span class="nav-count" id="destination-count">0</span></a>
           <a href="#records" data-page="records" class="nav-link"><span class="nav-icon icon-records" aria-hidden="true"></span><span>Recent data</span></a>
+          <a href="#config" data-page="config" class="nav-link"><span class="nav-icon icon-records" aria-hidden="true"></span><span>Configuration</span></a>
         </nav>
         <div class="sidebar-spacer"></div>
         <section class="connection-card">
@@ -45,6 +51,7 @@
         <header class="topbar">
           <div class="breadcrumb"><span>CONSOLE</span><span class="slash">/</span><strong id="crumb-page">Overview</strong></div>
           <div class="topbar-actions">
+            <label class="language-control" data-language-control><svg class="language-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18Z"></path></svg><select data-language-select aria-label="Language"><option value="en" lang="en">English</option><option value="th" lang="th">ไทย</option></select></label>
             <div class="refresh-state"><span class="refresh-dot" id="refresh-dot"></span><span id="last-updated">Waiting for connection</span></div>
             <button class="icon-button" id="refresh-button" type="button" aria-label="Refresh data" title="Refresh data"><span class="refresh-icon" aria-hidden="true">↻</span></button>
             <button class="operator-button" id="operator-button" type="button" aria-label="Sign out of operator session"><span class="operator-avatar" aria-hidden="true">OP</span><span>Sign out</span></button>
@@ -61,7 +68,7 @@
 
     <dialog id="login-dialog" class="dialog login-dialog" aria-labelledby="login-title">
       <form id="login-form">
-        <div class="dialog-kicker">OPERATOR SIGN IN</div>
+        <div class="dialog-heading-row"><div class="dialog-kicker">OPERATOR SIGN IN</div><label class="language-control" data-language-control><svg class="language-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18Z"></path></svg><select data-language-select aria-label="Language"><option value="en" lang="en">English</option><option value="th" lang="th">ไทย</option></select></label></div>
         <h2 id="login-title">Sign in to Musashi</h2>
         <p>Use the shared operator account to view system status and manage the service.</p>
         <label for="username-input">Username</label>
@@ -75,14 +82,14 @@
 
     <dialog id="edit-dialog" class="dialog edit-dialog" aria-labelledby="edit-title">
       <form id="edit-form" method="dialog">
-        <div class="dialog-top"><div><div class="dialog-kicker" id="edit-kicker">CONFIGURATION</div><h2 id="edit-title">Add item</h2></div><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div>
+        <div class="dialog-top"><div><div class="dialog-kicker" id="edit-kicker">CONFIGURATION</div><h2 id="edit-title">Add item</h2></div><div class="dialog-tools"><label class="language-control" data-language-control><svg class="language-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18Z"></path></svg><select data-language-select aria-label="Language"><option value="en" lang="en">English</option><option value="th" lang="th">ไทย</option></select></label><button class="icon-button close-dialog" type="button" aria-label="Close">×</button></div></div>
         <div id="edit-fields" class="form-grid"></div>
         <div id="edit-error" class="field-error" role="alert"></div>
         <div class="dialog-actions"><button type="button" class="button button-quiet close-dialog">Cancel</button><button type="submit" class="button button-primary">Save changes <span aria-hidden="true">→</span></button></div>
       </form>
     </dialog>
     <dialog id="confirm-dialog" class="dialog confirm-dialog" aria-labelledby="confirm-title">
-      <form id="confirm-form" method="dialog"><div class="dialog-kicker">CONFIRM ACTION</div><h2 id="confirm-title">Confirm action</h2><p id="confirm-copy"></p><div class="dialog-actions"><button class="button button-quiet" value="cancel">Cancel</button><button class="button button-danger" value="confirm">Confirm</button></div></form>
+      <form id="confirm-form" method="dialog"><div class="dialog-heading-row"><div class="dialog-kicker">CONFIRM ACTION</div><label class="language-control" data-language-control><svg class="language-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a17 17 0 0 1 0 18 17 17 0 0 1 0-18Z"></path></svg><select data-language-select aria-label="Language"><option value="en" lang="en">English</option><option value="th" lang="th">ไทย</option></select></label></div><h2 id="confirm-title">Confirm action</h2><p id="confirm-copy"></p><div class="dialog-actions"><button class="button button-quiet" value="cancel">Cancel</button><button class="button button-danger" value="confirm">Confirm</button></div></form>
     </dialog>
   </body>
 </html>
