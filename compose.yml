@@ -11,7 +11,7 @@ services:
       MUSASHI_PUBLIC_ORIGIN: ${MUSASHI_PUBLIC_ORIGIN-}
       MUSASHI_ALLOWED_ORIGINS: ${MUSASHI_ALLOWED_ORIGINS:-*}
     ports:
-      - "${MUSASHI_WEB_BIND:-0.0.0.0}:8080:8080"
+      - "${MUSASHI_WEB_BIND:-0.0.0.0}:18080:8080"
     volumes:
       - musashi_data:/data
     restart: unless-stopped
